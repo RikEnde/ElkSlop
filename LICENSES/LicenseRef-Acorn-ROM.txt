@@ -1,6 +1,9 @@
-Acorn Electron ROM images (roms/os.rom, roms/basic.rom)
+Acorn Electron ROM images (roms/os.rom, roms/basic.rom) and cassette images
+(tapes/*.uef)
 
-Copyright (C) 1982-1983 Acorn Computers Ltd. All rights reserved.
+ROM images: Copyright (C) 1982-1983 Acorn Computers Ltd. All rights reserved.
+Cassette images: Copyright (C) Acorn Computers Ltd and Acornsoft. All rights
+reserved.
 
 These files are not covered by Elkslop's BSD 3-Clause License, and no licence
 for them has been granted to the Elkslop project. They are included, as is

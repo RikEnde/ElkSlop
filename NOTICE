@@ -8,6 +8,9 @@ The Acorn Electron ROM images (roms/os.rom, roms/basic.rom) are copyright Acorn
 Computers Ltd and are included without a licence; they are not covered by the
 BSD License. See LICENSES/LicenseRef-Acorn-ROM.txt.
 
+The cassette images (tapes/*.uef) are copyright Acorn Computers Ltd and Acornsoft
+and are included on the same terms. See tapes/README.md.
+
 The ROM source reconstructions (docs/rom-sources/) are copyright their
 respective authors, carry no licence, and are not part of this distribution.
 

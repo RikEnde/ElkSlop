@@ -14,7 +14,8 @@ const val USAGE = """Usage: elkslop [options]
   --roms DIR          Directory with os.rom and basic.rom (default: roms)
   --scale 1|2|3       Window size; 1 is 640 x 512 (default: 1)
   --no-sound          Disable audio output
-  --type TEXT         Type TEXT after boot; \n starts a new line
+  --tape FILE         Put a UEF cassette image in the recorder
+  --type TEXT        Type TEXT after boot; \n starts a new line
   --screenshot FILE   Save a PNG of the window, then exit
   --frames N          Frames to run before the screenshot (default: 150)"""
 
@@ -22,6 +23,7 @@ data class Options(
     val romDirectory: File = File("roms"),
     val scale: Int = 1,
     val sound: Boolean = true,
+    val tape: File? = null,
     val typeText: String? = null,
     val screenshot: File? = null,
     val screenshotFrames: Int = 150,
@@ -37,6 +39,7 @@ data class Options(
                     "--scale" -> options.copy(scale = value().toIntOrNull()?.takeIf { it in 1..3 }
                         ?: throw IllegalArgumentException("--scale must be 1, 2 or 3"))
                     "--no-sound" -> options.copy(sound = false)
+                    "--tape" -> options.copy(tape = File(value()))
                     "--type" -> options.copy(typeText = value().replace("\\n", "\n"))
                     "--screenshot" -> options.copy(screenshot = File(value()))
                     "--frames" -> options.copy(screenshotFrames = value().toIntOrNull()?.takeIf { it > 0 }

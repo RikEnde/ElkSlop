@@ -6,6 +6,7 @@ package elkslop.desktop
 import elkslop.electron.ElectronClock
 import elkslop.electron.ElectronKey
 import elkslop.electron.ElectronMachine
+import elkslop.electron.UefTape
 import elkslop.electron.UlaVideo
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -31,6 +32,9 @@ class Emulator(
 
         /** Called on the emulation thread when the CAPS LK LED changes. */
         fun capsLockChanged(on: Boolean) {}
+
+        /** Called on the emulation thread when the cassette motor starts or stops. */
+        fun motorChanged(on: Boolean) {}
     }
 
     private val commands = ConcurrentLinkedQueue<(ElectronMachine) -> Unit>()
@@ -40,6 +44,8 @@ class Emulator(
     private var machine = createMachine().also { it.reset() }
     private var thread: Thread? = null
     private var capsLockLed: Boolean? = null
+    private var motorRunning = false
+    private var tape: UefTape? = null
 
     @Volatile private var running = false
     @Volatile var paused = false
@@ -89,9 +95,25 @@ class Emulator(
     /** Switch off and on: fresh RAM, ULA power-on state, and cold OS start. */
     fun powerCycle() = post {
         typer.cancel(it)
-        machine = createMachine().also { fresh -> fresh.reset() }
+        machine = createMachine().also { fresh ->
+            fresh.reset()
+            fresh.ula.cassette.port = tape // The cassette stays in the recorder.
+        }
         paused = false
     }
+
+    /** Put a cassette in the recorder, wound to its start. */
+    fun insertTape(cassette: UefTape) = post {
+        tape = cassette
+        it.ula.cassette.port = cassette
+    }
+
+    fun ejectTape() = post {
+        tape = null
+        it.ula.cassette.port = null
+    }
+
+    fun rewindTape() = post { tape?.rewind() }
 
     /** Characters the Electron cannot type are skipped and returned. */
     fun type(text: String, delayFrames: Int = 0): Set<Char> {
@@ -170,6 +192,11 @@ class Emulator(
         if (caps != capsLockLed) {
             capsLockLed = caps
             listener.capsLockChanged(caps)
+        }
+        val motor = machine.ula.cassette.motorRunning
+        if (motor != motorRunning) {
+            motorRunning = motor
+            listener.motorChanged(motor)
         }
         if (machine.cpu.halted) {
             // Like the real machine, a jammed CPU leaves the display running and

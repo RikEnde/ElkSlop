@@ -25,16 +25,17 @@ The quote is otherwise verbatim, apart from spacing after commas; the ROM credit
 Sophie Wilson under her former name. BBC BASIC, which the Electron runs, was
 written by Sophie Wilson.
 
-## Emulators we learned from
+## Emulators
 
 - **[MAME](https://github.com/mamedev/mame)**: the Electron driver and ULA
   device (`src/mame/acorn/electron.cpp`, `electron_ula.cpp`), copyright Wilbert
   Pol and Nigel Barnes, BSD-3-Clause. Our ULA follows its register behavior,
   palette wiring, interrupt timing and keyboard layout, and we checked our work
-  against it throughout.
+  against it throughout. Its UEF reader (`src/lib/formats/uef_cas.cpp`) was our
+  reference for the tape format's chunks.
 - **[Elkulator](https://github.com/dmcoles/elkulator)** and its contributors:
-  a second reference for the ULA, sound and cassette. Our BASIC ROM image comes
-  from the [Elkulator distribution](https://elkulator.acornelectron.co.uk/ElkulatorV1.0Win.zip).
+  our BASIC ROM image comes from the
+  [Elkulator distribution](https://elkulator.acornelectron.co.uk/ElkulatorV1.0Win.zip).
 
 ## ROM disassemblies
 
@@ -47,6 +48,14 @@ written by Sophie Wilson.
 
 They have no licence and aren't distributed with Elkslop;
 [`docs/rom-sources/README.md`](docs/rom-sources/README.md) says where to find them.
+
+## Tape images
+
+- **[The Stairway to Hell](https://www.stairwaytohell.com/electron/other.html)**:
+  the archive our Introductory Cassette and Peeko-Computer images come from.
+- **Thomas Harte**: the UEF tape format they are stored in.
+- **Acorn and Acornsoft**, who made the cassettes; see
+  [`tapes/README.md`](tapes/README.md).
 
 ## 6502 tests and references
 
