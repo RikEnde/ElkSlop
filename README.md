@@ -5,10 +5,12 @@ An Acorn Electron emulator being built in Kotlin. It has three modules:
 - `cpu`: a standalone NMOS 6502 CPU, all 256 opcodes.
 - `electron`: the ULA, memory map, machine clock, and a headless `ElectronMachine`
   that boots the real OS and BASIC ROMs.
-- `desktop`: a JVM window (Swing) with keyboard, sound, and paste-as-typing.
+- `desktop`: a JVM window (Swing) with keyboard, sound, paste-as-typing, and a
+  cassette recorder.
 
 The OS and BASIC ROMs are included (see [ROMs](#roms)), so it runs straight
-after cloning. There is no tape-image loader yet.
+after cloning. So are some cassettes, including the Electron's Introductory
+Cassette (see [Tapes](#tapes)).
 
 ## Run it
 
@@ -39,6 +41,7 @@ Options:
 --roms DIR          Directory with os.rom and basic.rom (default: roms)
 --scale 1|2|3       Window size; 1 is 640 x 512 (default: 1)
 --no-sound          Disable audio output
+--tape FILE         Put a UEF cassette image in the recorder
 --type TEXT         Type TEXT after boot; \n starts a new line
 --screenshot FILE   Save a PNG of the window, then exit
 --frames N          Frames to run before the screenshot (default: 150)
@@ -266,19 +269,24 @@ Video renders the last completed frame as 640 x 256 0xRRGGBB pixels via
 `ula.video.pixel()`, `copyFrame()` or `copyFrameInto()`. Sound exposes the
 speaker's one-bit level, and `ula.sound.startSampling(rate)` resamples it into
 audio samples for a host to play. The cassette works on decoded bits through
-`CassettePort`. It does not demodulate analog audio or parse UEF files.
+`CassettePort`, and `UefTape` plays a UEF image through it, moving only while the
+motor runs. It takes plain UEF bytes, so hosts unpack gzipped images themselves.
+It does not demodulate analog audio. Saving to tape isn't implemented: `SAVE`
+runs, but nothing records the output.
 
 Known simplifications: whole-line 312/313 frames rather than PAL half-line sync;
 interrupts are sampled at instruction boundaries; display-end timing is at the
 start of the line rather than 24-40 cycles after the last pixel.
 
 `electron` tests cover interrupts, paging, palette wiring, keyboard decoding,
-sound period and sampling, interrupt lines, rendering, and contention. `jvmTest`
-also boots the ROMs and checks the start-up banner and prompt by matching screen
-RAM against the OS font. It types `PRINT 6*7` and expects `42`, runs an
-undocumented opcode from BASIC, and draws MODE 2 colour bars, checking each
-colour. Frames are written to `electron/build/test-frames/`. The ROM tests skip
-with a message if the ROM files are missing.
+sound period and sampling, interrupt lines, rendering, contention, and each UEF
+chunk type. `jvmTest` also boots the ROMs and checks the start-up banner and
+prompt by matching screen RAM against the OS font. It types `PRINT 6*7` and
+expects `42`, runs an undocumented opcode from BASIC, and draws MODE 2 colour
+bars, checking each colour. It also loads the first program from both
+Introductory Cassettes through the OS and compares RAM with the file on the tape.
+Frames are written to `electron/build/test-frames/`. The boot tests skip with a
+message if the ROM files are missing.
 
 ## Desktop front end
 
@@ -299,6 +307,7 @@ with a message if the ROM files are missing.
 - `KeyMapping.kt`, `TextTyper.kt`: physical key mapping, and the typist behind
   paste-as-typing and the Keys menu (each key held for 3 frames, released for 3,
   with a longer pause after RETURN; modifiers go down a frame before the last key).
+- `TapeFile.kt`: reads UEF images, gzipped or plain.
 - `EmulatorWindow.kt`, `Main.kt`: menus, options, and ROM loading.
 - `AppIcon.kt`: the pixel-art acorn used as the window and Dock icon, drawn
   from a 32 x 32 grid in code.
@@ -306,7 +315,8 @@ with a message if the ROM files are missing.
 `desktop` tests type every mappable symbol into BASIC on the real ROMs and check
 the result on screen. They also check that SHIFT + CAPS LK toggles caps lock
 (and CAPS LK alone doesn't), that FUNC + 1 runs a `*KEY1` definition, that
-CTRL stays held through a CTRL + BREAK reset, and that the icon renders.
+CTRL stays held through a CTRL + BREAK reset, that tape images load gzipped or
+plain, and that the icon renders.
 
 ## License
 
@@ -315,9 +325,9 @@ keep their own licenses: the CPU test fixtures (MIT and GPL-3.0-or-later) and
 the Gradle wrapper (Apache-2.0). The ULA follows MAME's BSD-3-Clause Electron
 driver, credited in [NOTICE](NOTICE). Source files carry SPDX headers, and
 [REUSE.toml](REUSE.toml) covers files that can't. The two ROM images in `roms/`
-are © Acorn and included without a licence (see
-[LICENSES/LicenseRef-Acorn-ROM.txt](LICENSES/LicenseRef-Acorn-ROM.txt)); the ROM
-source reconstructions are not distributed.
+and the cassette images in `tapes/` are © Acorn and included without a licence
+(see [LICENSES/LicenseRef-Acorn-ROM.txt](LICENSES/LicenseRef-Acorn-ROM.txt)); the
+ROM source reconstructions are not distributed.
 
 ## Acknowledgements
 
@@ -360,3 +370,23 @@ Elkulator's OS ROM also works, but was dumped through a running Electron and
 has I/O register values in 48 places in `&FC00-&FEFF`, which garble the hidden
 credits text. The emulator never shows those addresses, so it behaves the same
 with either. See [docs/rom-sources/README.md](docs/rom-sources/README.md).
+
+## Tapes
+
+[`tapes/`](tapes/README.md) holds the Introductory Cassette that came with the
+Electron, in English and German, and Acornsoft's Peeko-Computer, as UEF images
+from [The Stairway to Hell](https://www.stairwaytohell.com/electron/other.html).
+They are © Acorn and Acornsoft and not covered by Elkslop's licence.
+[tapes/README.md](tapes/README.md) lists what's on each one and where it came from.
+
+To play one, choose **Tape > Insert Tape...** or start with a tape already in:
+
+```sh
+./run.sh --tape tapes/intro-english.uef --type 'CHAIN""\n'
+```
+
+Tapes load at the real 1200 baud, about 120 bytes a second, so the longer
+programs take minutes. The title bar shows the tape's name, and `[MOTOR]` while
+it's moving. **Tape > Rewind** winds back to the start; there is no fast forward.
+Other `.uef` files work too, gzipped or plain, if they use the common chunks.
+Tapes that rely on security cycles or other protection tricks may not load.

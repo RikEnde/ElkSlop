@@ -6,6 +6,7 @@ package elkslop.desktop
 import elkslop.electron.ElectronKey
 import elkslop.electron.ElectronMachine
 import java.awt.BorderLayout
+import java.awt.FileDialog
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
 import java.awt.event.ActionEvent
@@ -17,6 +18,7 @@ import java.awt.event.KeyEvent
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.imageio.ImageIO
 import javax.swing.AbstractAction
@@ -46,6 +48,8 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
     private lateinit var pauseItem: JCheckBoxMenuItem
     private lateinit var funcLatchItem: JCheckBoxMenuItem
     @Volatile private var capsLock = false
+    @Volatile private var motorRunning = false
+    private var tapeName: String? = null
 
     fun show() {
         frame.defaultCloseOperation = WindowConstants.DISPOSE_ON_CLOSE
@@ -73,6 +77,7 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
         frame.isVisible = true
         screen.requestFocusInWindow()
 
+        options.tape?.let { insertTape(it) }
         options.typeText?.let { emulator.type(it, delayFrames = BOOT_FRAMES) }
         emulator.start()
     }
@@ -101,6 +106,11 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
 
     override fun capsLockChanged(on: Boolean) {
         capsLock = on
+        SwingUtilities.invokeLater { updateTitle() }
+    }
+
+    override fun motorChanged(on: Boolean) {
+        motorRunning = on
         SwingUtilities.invokeLater { updateTitle() }
     }
 
@@ -164,6 +174,15 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
             add(item("Stop Typing", null) { emulator.cancelTyping() })
         })
         add(createKeysMenu())
+        add(JMenu("Tape").apply {
+            add(item("Insert Tape...", shortcut(KeyEvent.VK_O)) { chooseTape() })
+            add(item("Rewind", null) { emulator.rewindTape() })
+            add(item("Eject", null) {
+                emulator.ejectTape()
+                tapeName = null
+                updateTitle()
+            })
+        })
         add(JMenu("View").apply {
             val group = ButtonGroup()
             for (scale in 1..3) {
@@ -240,7 +259,33 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
     private fun updateTitle() {
         frame.title = "Elkslop - Acorn Electron" +
             (if (capsLock) "  [CAPS]" else "") +
+            (tapeName?.let { "  [$it]" } ?: "") +
+            (if (motorRunning) "  [MOTOR]" else "") +
             (if (emulator.paused) "  (paused)" else "")
+    }
+
+    private fun chooseTape() {
+        val dialog = FileDialog(frame, "Insert Tape", FileDialog.LOAD)
+        dialog.directory = File("tapes").absolutePath
+        dialog.isVisible = true
+        val name = dialog.file
+        if (name != null) insertTape(File(dialog.directory, name))
+        screen.requestFocusInWindow()
+    }
+
+    private fun insertTape(file: File) {
+        try {
+            emulator.insertTape(TapeFile.load(file))
+            tapeName = file.name
+            updateTitle()
+        } catch (e: IOException) {
+            JOptionPane.showMessageDialog(
+                frame,
+                "Couldn't load ${file.name}:\n${e.message ?: e}",
+                "Insert Tape",
+                JOptionPane.ERROR_MESSAGE,
+            )
+        }
     }
 
     private fun pasteClipboard() {
@@ -282,6 +327,7 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
             The title bar shows [CAPS] while CAPS LK is on.
 
             Pause: F9.   Paste as Typing types text from the clipboard.
+            Tapes: insert one from the Tape menu, then type CHAIN "" and RETURN.
             """.trimIndent(),
             "Keyboard",
             JOptionPane.PLAIN_MESSAGE,

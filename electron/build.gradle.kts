@@ -22,7 +22,9 @@ kotlin {
 // ROMs remain local inputs, never resources packaged into the library.
 tasks.withType<Test>().configureEach {
     systemProperty("elkslop.romDirectory", rootProject.file("roms").absolutePath)
+    systemProperty("elkslop.tapeDirectory", rootProject.file("tapes").absolutePath)
     inputs.files(rootProject.file("roms/os.rom"), rootProject.file("roms/basic.rom"))
         .withPropertyName("electronRoms")
+    inputs.dir(rootProject.file("tapes")).withPropertyName("electronTapes")
     testLogging { events("passed", "skipped", "failed") }
 }

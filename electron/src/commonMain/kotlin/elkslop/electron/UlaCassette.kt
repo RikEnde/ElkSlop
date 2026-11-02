@@ -7,10 +7,10 @@ package elkslop.electron
 enum class TapeBit { ZERO, ONE, SILENCE }
 
 /**
- * A transport adapter for decoded tape bits (for example a future UEF reader).
- * Called once per bit period while the motor and relevant ULA mode are active.
- * It must not re-enter the machine. This boundary deliberately excludes analogue
- * waveform demodulation, zero-crossing tolerance, and tape-image parsing.
+ * A transport adapter for decoded tape bits, such as [UefTape]. Called once per
+ * bit period while the motor runs: [readBit] unless the ULA is writing to tape,
+ * [writeBit] while it is. It must not re-enter the machine. This boundary
+ * deliberately excludes analogue waveform demodulation and zero-crossing tolerance.
  */
 interface CassettePort {
     fun readBit(): TapeBit = TapeBit.SILENCE
@@ -69,10 +69,14 @@ class UlaCassette internal constructor(private val interrupts: UlaInterrupts) {
     }
 
     internal fun tick() {
-        if (!motorRunning || (mode != 0 && mode != 2)) return
+        if (!motorRunning) return
         if (++bitTicks != BIT_TICKS) return
         bitTicks = 0
-        if (mode == 0) receive(port?.readBit() ?: TapeBit.SILENCE) else transmit()
+        when (mode) {
+            0 -> receive(port?.readBit() ?: TapeBit.SILENCE)
+            2 -> transmit()
+            else -> port?.readBit() // The tape keeps moving; the ULA isn't listening.
+        }
     }
 
     private fun receive(bit: TapeBit) {
