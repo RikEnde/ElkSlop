@@ -182,6 +182,14 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
                 tapeName = null
                 updateTitle()
             })
+            addSeparator()
+            add(JCheckBoxMenuItem("Fast Loading").apply {
+                toolTipText = "Run flat out while the machine reads a tape, instead of at 1200 baud"
+                addActionListener {
+                    emulator.fastTape = isSelected
+                    updateTitle()
+                }
+            })
         })
         add(JMenu("View").apply {
             val group = ButtonGroup()
@@ -260,6 +268,7 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
         frame.title = "Elkslop - Acorn Electron" +
             (if (capsLock) "  [CAPS]" else "") +
             (tapeName?.let { "  [$it]" } ?: "") +
+            (if (emulator.fastTape) "  [FAST]" else "") +
             (if (motorRunning) "  [MOTOR]" else "") +
             (if (emulator.paused) "  (paused)" else "")
     }
@@ -328,6 +337,7 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
 
             Pause: F9.   Paste as Typing types text from the clipboard.
             Tapes: insert one from the Tape menu, then type CHAIN "" and RETURN.
+            Tape > Fast Loading skips the wait; [FAST] in the title bar shows it's on.
             """.trimIndent(),
             "Keyboard",
             JOptionPane.PLAIN_MESSAGE,

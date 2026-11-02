@@ -57,6 +57,7 @@ Shift+2 is `"`, Shift+' is `*`, Shift+; is `+`, Shift+- is `=`, Shift+0 is `@`.
 | CAPS LK / FUNC | Tab or Alt/Option; Shift+Tab toggles caps lock |
 | COPY | End |
 | DELETE | Backspace or Delete |
+| ESCAPE | Esc |
 | BREAK | F12 (Ctrl+F12 hard reset, Shift+F12 autoboot) |
 | Cursor keys | Arrows, or `=` `\` `[` `]` for their symbols |
 
@@ -85,8 +86,8 @@ Kotlin/Native macOS, Linux, and Windows targets. There are no JavaScript or Wasm
 targets.
 
 JVM is one way to run the same core, not a requirement of its design. The shared
-unit tests also run as native executables. Loading test fixtures and ROM files
-lives in `jvmTest`; its JVM file APIs are not production dependencies. Only the
+unit tests also run as native executables. Loading test fixtures, ROM files and
+tapes lives in `jvmTest`; its JVM file APIs are not production dependencies. Only the
 `desktop` front end is JVM-only, because it uses Swing and `javax.sound`.
 
 ## Build and test
@@ -106,7 +107,7 @@ JAVA_HOME="$PWD/.tools/jdk" ./gradlew :cpu:jvmTest :cpu:macosArm64Test :electron
 
 The first build downloads Gradle/Kotlin dependencies. Native builds also download
 the Kotlin/Native compiler and dependencies; macOS linking requires Xcode.
-Tests use checked-in fixtures and the checked-in ROMs; they download nothing.
+Tests use checked-in fixtures, ROMs and tapes; they download nothing.
 
 Other native test tasks include `macosX64Test`, `linuxX64Test`, `linuxArm64Test`,
 and `mingwX64Test`. Run them on a compatible host; declaring a target does not
@@ -286,7 +287,7 @@ expects `42`, runs an undocumented opcode from BASIC, and draws MODE 2 colour
 bars, checking each colour. It also loads the first program from both
 Introductory Cassettes through the OS and compares RAM with the file on the tape.
 Frames are written to `electron/build/test-frames/`. The boot tests skip with a
-message if the ROM files are missing.
+message if the ROM files are missing; the tape tests fail.
 
 ## Desktop front end
 
@@ -297,7 +298,8 @@ message if the ROM files are missing.
   threads send it commands through a queue and read finished frames. With sound,
   the blocking audio device paces the emulator, so the sound card's clock is the
   master clock (about 67 ms of buffer). Without sound, it sleeps to match
-  emulated time to wall time. If the CPU executes a JAM opcode (which halts a
+  emulated time to wall time. With Fast Loading on, it doesn't pace at all while
+  the machine reads a tape. If the CPU executes a JAM opcode (which halts a
   real 6502) or the machine stops on an error, it pauses and a dialog explains
   how to recover.
 - `ScreenPanel.kt`: draws the 640 x 256 frame doubled vertically (5:4),
@@ -316,7 +318,8 @@ message if the ROM files are missing.
 the result on screen. They also check that SHIFT + CAPS LK toggles caps lock
 (and CAPS LK alone doesn't), that FUNC + 1 runs a `*KEY1` definition, that
 CTRL stays held through a CTRL + BREAK reset, that tape images load gzipped or
-plain, and that the icon renders.
+plain, that Fast Loading loads a whole program quickly and speeds up only while a
+tape is playing, and that the icon renders.
 
 ## License
 
@@ -344,7 +347,7 @@ Commented assembly for both ROMs is useful to read alongside the emulator:
   [mdfs.net](https://mdfs.net/Software/BBCBasic/BBC/).
 
 Neither has a licence, so they aren't in this repository. To download them into
-`docs/rom-sources/`, at the versions we used and checked by SHA-256, run:
+`docs/rom-sources/` and check them against the SHA-256 of the versions we used, run:
 
 ```sh
 docs/rom-sources/fetch.sh
@@ -368,8 +371,8 @@ They are © Acorn and not covered by Elkslop's licence (see [License](#license))
 
 Elkulator's OS ROM also works, but was dumped through a running Electron and
 has I/O register values in 48 places in `&FC00-&FEFF`, which garble the hidden
-credits text. The emulator never shows those addresses, so it behaves the same
-with either. See [docs/rom-sources/README.md](docs/rom-sources/README.md).
+credits text. With the ULA read-back the emulator uses by default, it never shows
+those addresses, so it behaves the same with either. See [docs/rom-sources/README.md](docs/rom-sources/README.md).
 
 ## Tapes
 
@@ -386,7 +389,14 @@ To play one, choose **Tape > Insert Tape...** or start with a tape already in:
 ```
 
 Tapes load at the real 1200 baud, about 120 bytes a second, so the longer
-programs take minutes. The title bar shows the tape's name, and `[MOTOR]` while
-it's moving. **Tape > Rewind** winds back to the start; there is no fast forward.
+programs take minutes. To skip the wait, turn on **Tape > Fast Loading**. It's
+off each time you start the emulator. The whole machine then runs flat out while
+it reads the tape (about 36x on the machine we tried), and the sound stops until
+it returns to normal speed. Software still sees the real timing, so anything
+that loads at normal speed should load the same way.
+
+The title bar shows the tape's name, `[FAST]` when Fast Loading is on, and
+`[MOTOR]` while the tape is moving. **Tape > Rewind** winds back to the start;
+there is no fast forward.
 Other `.uef` files work too, gzipped or plain, if they use the common chunks.
 Tapes that rely on security cycles or other protection tricks may not load.
