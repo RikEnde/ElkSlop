@@ -21,6 +21,7 @@ Choose **Tape > Insert Tape...**, or start with a tape in the recorder:
 
 `CHAIN""` loads and runs the next program on the tape. Tapes play at the real
 1200 baud, about 120 bytes a second, so the larger programs take a few minutes.
+Turn on **Tape > Fast Loading** to skip the wait.
 
 ## The Introductory Cassette
 
@@ -92,7 +93,8 @@ tried on 2 November 2026, and it wasn't in the Internet Archive's
 
 ## Checks
 
-All three use only the data, carrier and gap chunks that the emulator reads.
+Apart from an origin note, which the emulator skips, all three use only the data,
+carrier and gap chunks that it reads.
 `TapeLoadTest` loads the first program from both Introductory Cassettes through
 the real OS and compares RAM with the file on the tape. No test covers Peeko, or
 the later programs on the Introductory Cassettes.

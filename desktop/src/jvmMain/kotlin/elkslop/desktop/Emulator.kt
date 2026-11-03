@@ -16,7 +16,9 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * Only the emulation thread touches the machine. Other threads talk to it
  * through [post], and read video through [copyFrame]. With sound on, the
  * blocking audio device sets the pace (its sample clock is the master clock);
- * without sound, the thread sleeps to match emulated time to wall time.
+ * without sound, the thread sleeps to match emulated time to wall time. With
+ * [fastTape] on, it runs flat out while the machine reads a tape, so software
+ * still sees the real timing and can't tell.
  */
 class Emulator(
     private val createMachine: () -> ElectronMachine,
@@ -50,6 +52,7 @@ class Emulator(
     @Volatile private var running = false
     @Volatile var paused = false
     @Volatile var volume = 0.25f
+    @Volatile var fastTape = false
     @Volatile var frameCount = 0L
         private set
 
@@ -158,7 +161,10 @@ class Emulator(
                 }
 
                 val count = machine.ula.sound.drainSamples(samples)
-                if (audio != null) {
+                if (fastTape && readingTape()) {
+                    paceStart = System.nanoTime()
+                    paceTicks = 0
+                } else if (audio != null) {
                     audio.write(samples, count, volume)
                 } else {
                     paceTicks += elapsed
@@ -177,6 +183,9 @@ class Emulator(
             audio?.close()
         }
     }
+
+    /** Past the end of the tape there's nothing to hurry towards. */
+    private fun readingTape() = machine.ula.cassette.receiving && tape?.atEnd == false
 
     /** Runs until the ULA completes a frame; returns the elapsed machine ticks. */
     private fun runFrame(): Long {

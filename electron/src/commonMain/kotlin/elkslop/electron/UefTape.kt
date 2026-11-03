@@ -17,11 +17,12 @@ class UefTape private constructor(private val bits: ByteArray) : CassettePort {
     var position: Int = 0
         private set
     val length: Int get() = bits.size
+    val atEnd: Boolean get() = position == bits.size
 
     fun rewind() { position = 0 }
 
     override fun readBit(): TapeBit {
-        if (position == bits.size) return TapeBit.SILENCE
+        if (atEnd) return TapeBit.SILENCE
         return when (bits[position++]) {
             ZERO -> TapeBit.ZERO
             ONE -> TapeBit.ONE

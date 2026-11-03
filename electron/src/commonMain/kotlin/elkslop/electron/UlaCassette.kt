@@ -31,6 +31,9 @@ class UlaCassette internal constructor(private val interrupts: UlaInterrupts) {
     var data: Int = 0
         private set
 
+    /** The motor is running and the ULA is listening to the tape. */
+    val receiving: Boolean get() = motorRunning && mode == 0
+
     private var bitTicks = 0
     private var receiveIndex = -1
     private var received = 0

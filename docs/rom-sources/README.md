@@ -11,9 +11,12 @@ To download them into this folder, run:
 docs/rom-sources/fetch.sh
 ```
 
-It fetches the exact versions listed below, checks every file's SHA-256, and,
-if `64tass` is installed, generates `elk100.lst` and checks that it rebuilds the
-original ROM. It needs `curl`, `tar` and `unzip`. The ROM images the emulator
+It fetches the OS disassembly at the commit listed below and the current BASIC
+archive, and checks each file's SHA-256. A changed OS file is an error. A changed
+`Basic2.src` is only reported, because the archive has no pinned version and gets
+updated from time to time. If `64tass` is installed, the script also generates
+`elk100.lst` and checks that it rebuilds the original ROM. It needs `curl`, `tar`
+and `unzip`. The ROM images the emulator
 loads are separate: `roms/` (see the main README).
 
 Both are reconstructions by enthusiasts, not Acorn's original source files.
@@ -52,8 +55,9 @@ the following contributors..."), which programs normally can't read because the
 I/O hardware overlays it. Elkulator's copy was evidently dumped by software on a
 running Electron: the bytes at the readable ULA registers (`&FEx0`, `&FEx4`) and
 at `&FCC0-&FCCF` hold I/O values instead of ROM text, which is why its credits
-read "Chiis Turner", for example. Every address the CPU can actually see is
-identical, so the emulator behaves the same with either.
+read "Chiis Turner", for example. With the ULA read-back the emulator uses by
+default, every address the CPU can see is identical, so it behaves the same with
+either.
 
 ## `basic-2/`: BBC BASIC II
 

@@ -81,14 +81,4 @@ Licenses and pinned versions for the test fixtures are in
 - The Acorn community, especially the [StarDot forums](https://stardot.org.uk),
   where much of this knowledge is kept alive.
 
-## Tools
-
-Built with [Kotlin](https://kotlinlang.org) and [Gradle](https://gradle.org).
-
-## How this was written
-
-Most of Elkslop's code was written by AI coding assistants (OpenAI Codex, then
-Anthropic's Claude), directed by Rik. Everything that made that possible is
-listed above.
-
 If we've missed anyone, or credited something wrongly, please tell us.
