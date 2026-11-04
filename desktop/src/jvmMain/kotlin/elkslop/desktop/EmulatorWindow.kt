@@ -225,6 +225,8 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
         })
         addSeparator()
         add(item("COPY  (End)", null) { emulator.tap(ElectronKey.COPY) })
+        add(item("[  (Shift+End)", null) { emulator.tap(ElectronKey.SHIFT, ElectronKey.COPY) })
+        add(item("]  (Ctrl+End)", null) { emulator.tap(ElectronKey.CONTROL, ElectronKey.COPY) })
         // The Electron toggles caps lock with SHIFT + CAPS LK; alone it is FUNC.
         add(item("CAPS LK  (Shift+Tab)", null) { emulator.tap(ElectronKey.SHIFT, ElectronKey.FUNC) })
         add(item("ESCAPE  (Esc)", null) { emulator.tap(ElectronKey.ESCAPE) })
@@ -324,14 +326,14 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
 
             Electron key        Host key
             CAPS LK / FUNC      Tab or Alt/Option  (Shift+Tab toggles caps lock)
-            COPY                End
+            COPY                End   (Shift+End = [   Ctrl+End = ])
             DELETE              Backspace or Delete
             ESCAPE              Esc
             BREAK               F12   (Ctrl+F12 = hard reset; Shift+F12 = autoboot)
             Cursor keys         Arrows
             ^ ~ / | \ / £ { / _ }    = / \ / [ / ]   (the Electron's cursor keys)
 
-            The Keys menu taps COPY, CAPS LK, ESCAPE, BREAK variants and f0-f9.
+            The Keys menu taps COPY, [ and ], CAPS LK, ESCAPE, BREAK variants and f0-f9.
             FUNC + Next Key holds FUNC for the next key you press.
             The title bar shows [CAPS] while CAPS LK is on.
 

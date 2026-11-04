@@ -26,7 +26,7 @@ class TextTyperTest {
     @Test
     fun typesEveryMappedCharacterIntoBasic() {
         val machine = bootedMachine() ?: return
-        val symbols = "!#$%&'()@=*+<>?-:;,./^|_"
+        val symbols = "!#$%&'()@=*+<>?-:;,./^|_[]\\~{}"
         val typer = TextTyper()
         assertTrue(typer.enqueue("A\$=\"$symbols\"\nPRINT A\$\nprint 1\n").isEmpty())
         while (typer.busy) {

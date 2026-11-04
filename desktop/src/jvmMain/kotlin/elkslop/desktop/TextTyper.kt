@@ -87,7 +87,11 @@ class TextTyper {
             is Item.Text -> {
                 // Decide Shift from the live CAPS LK LED, so either lock state works.
                 val stroke = KeyMapping.forCharacter(item.char, machine.ula.capsLockLed) ?: return
-                press(machine, if (stroke.shift) listOf(ElectronKey.SHIFT, stroke.key) else listOf(stroke.key), PRESS_FRAMES, null)
+                val modifiers = listOfNotNull(
+                    ElectronKey.SHIFT.takeIf { stroke.shift },
+                    ElectronKey.CONTROL.takeIf { stroke.control },
+                )
+                press(machine, modifiers + stroke.key, PRESS_FRAMES, null)
             }
             is Item.Chord -> press(machine, item.keys, item.holdFrames, item.onPress)
         }

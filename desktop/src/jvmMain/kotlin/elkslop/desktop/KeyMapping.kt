@@ -52,8 +52,8 @@ object KeyMapping {
 
     fun forKeyCode(keyCode: Int): ElectronKey? = physical[keyCode]
 
-    /** A key to press for a typed character, with or without Shift. */
-    data class Stroke(val key: ElectronKey, val shift: Boolean)
+    /** A key to press for a typed character, with any modifier it needs. */
+    data class Stroke(val key: ElectronKey, val shift: Boolean, val control: Boolean = false)
 
     private val unshifted = mapOf(
         ' ' to ElectronKey.SPACE, '\n' to ElectronKey.RETURN, '\r' to ElectronKey.RETURN,
@@ -67,11 +67,15 @@ object KeyMapping {
         '@' to ElectronKey.DIGIT_0, '=' to ElectronKey.MINUS, '*' to ElectronKey.COLON,
         '+' to ElectronKey.SEMICOLON, '<' to ElectronKey.COMMA, '>' to ElectronKey.PERIOD,
         '?' to ElectronKey.SLASH, '^' to ElectronKey.LEFT, '|' to ElectronKey.RIGHT,
-        '_' to ElectronKey.DOWN, '£' to ElectronKey.UP,
+        '_' to ElectronKey.DOWN, '£' to ElectronKey.UP, '[' to ElectronKey.COPY,
+    )
+    private val controlled = mapOf(
+        '~' to ElectronKey.LEFT, '\\' to ElectronKey.RIGHT, '{' to ElectronKey.UP,
+        '}' to ElectronKey.DOWN, ']' to ElectronKey.COPY,
     )
 
     /**
-     * Stroke for [char], or null if the Electron cannot type it with Shift alone.
+     * Stroke for [char], or null if the Electron cannot type it.
      * With CAPS LK on, unshifted letters are capitals and Shift gives lower case.
      */
     fun forCharacter(char: Char, capsLock: Boolean): Stroke? {
@@ -80,6 +84,7 @@ object KeyMapping {
         if (char in '0'..'9') return Stroke(ElectronKey.valueOf("DIGIT_$char"), shift = false)
         unshifted[char]?.let { return Stroke(it, shift = false) }
         shifted[char]?.let { return Stroke(it, shift = true) }
+        controlled[char]?.let { return Stroke(it, shift = false, control = true) }
         return null
     }
 }
