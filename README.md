@@ -49,8 +49,20 @@ Options:
 
 ### Keyboard
 
-Keys map by position, as in MAME, so shifted symbols are the Electron's own:
-Shift+2 is `"`, Shift+' is `*`, Shift+; is `+`, Shift+- is `=`, Shift+0 is `@`.
+**Keys > Keyboard Layout** switches between two layouts:
+
+- **Physical** is the default and suits games. Keys map by position, as in MAME,
+  so shifted symbols are the Electron's own: Shift+2 is `"`, Shift+' is `*`,
+  Shift+; is `+`, Shift+- is `=`, Shift+0 is `@`. On macOS, Java takes letters and
+  digits from your host layout and punctuation from the physical key.
+- **Natural** suits typing. Each key types the character your own keyboard
+  produces, and the title bar shows `[NATURAL]`. Letters still follow CAPS LK. It
+  handles one key at a time: the key you pressed last replaces any key still held,
+  and games that read several keys at once won't work. A dead key types its symbol
+  straight away, and characters the Electron doesn't have do nothing.
+
+The other host keys are the same in both layouts, except that `=` `\` `[` `]` only
+stand in for the cursor symbols in Physical:
 
 | Electron | Host |
 |---|---|
@@ -67,7 +79,7 @@ lock. The title bar shows `[CAPS]` while it's on, standing in for the LED.
 
 The **Keys** menu has the keys a host keyboard lacks: BREAK, CTRL+BREAK (hard
 reset), SHIFT+BREAK (autoboot), COPY, `[`, `]`, CAPS LK, ESCAPE, DELETE, and function keys
-f0-f9 (FUNC + digit). **FUNC + Next Key** holds FUNC until you press another key,
+f0-f9 (FUNC + digit), plus the layout choice. **FUNC + Next Key** holds FUNC until you press another key,
 for FUNC + letter BASIC keyword shortcuts. Menu keys are tapped through the same
 typist as pasted text, with modifiers pressed a frame before the last key; the
 OS ignores FUNC + digit if both go down in the same frame.
@@ -306,7 +318,8 @@ message if the ROM files are missing; the tape tests fail.
   letterboxed, with nearest-neighbour scaling.
 - `AudioOutput.kt`: 48 kHz 16-bit mono. The ULA resamples its one-bit speaker
   output by averaging over each sample period (`UlaSound.startSampling`).
-- `KeyMapping.kt`, `TextTyper.kt`: physical key mapping, and the typist behind
+- `NaturalKeyboard.kt`: the Natural layout's modifier overrides and event queue.
+- `KeyMapping.kt`, `TextTyper.kt`: host key mappings, and the typist behind
   paste-as-typing and the Keys menu (each key held for 3 frames, released for 3,
   with a longer pause after RETURN; modifiers go down a frame before the last key).
 - `TapeFile.kt`: reads UEF images, gzipped or plain.

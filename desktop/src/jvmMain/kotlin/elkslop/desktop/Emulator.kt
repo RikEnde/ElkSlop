@@ -43,6 +43,7 @@ class Emulator(
     private val frameLock = Any()
     private val published = IntArray(UlaVideo.WIDTH * UlaVideo.HEIGHT)
     private val typer = TextTyper()
+    private val natural = NaturalKeyboard()
     private var machine = createMachine().also { it.reset() }
     private var thread: Thread? = null
     private var capsLockLed: Boolean? = null
@@ -79,7 +80,14 @@ class Emulator(
 
     fun press(key: ElectronKey) = post { it.keyboard.press(key) }
     fun release(key: ElectronKey) = post { it.keyboard.release(key) }
-    fun releaseAll() = post { it.keyboard.releaseAll() }
+    fun releaseAll() = post {
+        it.keyboard.releaseAll()
+        natural.reset()
+    }
+
+    fun naturalModifier(key: ElectronKey, down: Boolean) = post { natural.modifier(key, down) }
+    fun naturalKeyDown(hostKey: Int, stroke: KeyMapping.NaturalStroke) = post { natural.keyDown(hostKey, stroke) }
+    fun naturalKeyUp(hostKey: Int) = post { natural.keyUp(hostKey) }
 
     /** BREAK key: CPU reset; RAM survives, so BASIC programs can be OLDed. */
     fun pressBreak() = post { it.reset() }
@@ -98,6 +106,7 @@ class Emulator(
     /** Switch off and on: fresh RAM, ULA power-on state, and cold OS start. */
     fun powerCycle() = post {
         typer.cancel(it)
+        natural.reset()
         machine = createMachine().also { fresh ->
             fresh.reset()
             fresh.ula.cassette.port = tape // The cassette stays in the recorder.
@@ -191,6 +200,7 @@ class Emulator(
     private fun runFrame(): Long {
         val machine = machine
         typer.onFrame(machine)
+        natural.onFrame(machine.keyboard)
         val video = machine.ula.video
         val frame = video.frameNumber
         val start = machine.clock.ticks

@@ -47,6 +47,7 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
     private val isMac = System.getProperty("os.name").startsWith("Mac")
     private lateinit var pauseItem: JCheckBoxMenuItem
     private lateinit var funcLatchItem: JCheckBoxMenuItem
+    private var naturalLayout = false
     @Volatile private var capsLock = false
     @Volatile private var motorRunning = false
     private var tapeName: String? = null
@@ -126,6 +127,17 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
                 e.consume()
                 return
             }
+            if (naturalLayout) {
+                val modifier = KeyMapping.naturalModifier(e.keyCode)
+                if (modifier != null) {
+                    emulator.naturalModifier(modifier, down = true)
+                } else {
+                    val stroke = KeyMapping.naturalStroke(e.keyCode, e.keyChar, e.isControlDown, e.isAltDown || e.isAltGraphDown)
+                    if (stroke != null) emulator.naturalKeyDown(e.keyCode, stroke)
+                }
+                e.consume()
+                return
+            }
             KeyMapping.forKeyCode(e.keyCode)?.let {
                 emulator.press(it)
                 e.consume()
@@ -133,16 +145,38 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
         }
 
         override fun keyReleased(e: KeyEvent) {
-            KeyMapping.forKeyCode(e.keyCode)?.let {
-                emulator.release(it)
+            val key = KeyMapping.forKeyCode(e.keyCode)
+            if (naturalLayout) {
+                val modifier = KeyMapping.naturalModifier(e.keyCode)
+                if (modifier != null) emulator.naturalModifier(modifier, down = false) else emulator.naturalKeyUp(e.keyCode)
                 e.consume()
-                // A latched FUNC lasts until the next ordinary key is released.
-                if (funcLatchItem.isSelected && it !in MODIFIERS) {
-                    funcLatchItem.isSelected = false
-                    emulator.release(ElectronKey.FUNC)
-                }
+            } else if (key != null) {
+                emulator.release(key)
+                e.consume()
+            }
+            // A latched FUNC lasts until the next ordinary key is released.
+            if (key != null && funcLatchItem.isSelected && key !in MODIFIERS) {
+                funcLatchItem.isSelected = false
+                setFuncLatch(false)
             }
         }
+    }
+
+    private fun setFuncLatch(on: Boolean) {
+        when {
+            naturalLayout -> emulator.naturalModifier(ElectronKey.FUNC, on)
+            on -> emulator.press(ElectronKey.FUNC)
+            else -> emulator.release(ElectronKey.FUNC)
+        }
+    }
+
+    private fun setNaturalLayout(natural: Boolean) {
+        naturalLayout = natural
+        // Keys held now would never be released by the other layout's handling.
+        emulator.releaseAll()
+        funcLatchItem.isSelected = false
+        updateTitle()
+        screen.requestFocusInWindow()
     }
 
     private fun createMenuBar() = JMenuBar().apply {
@@ -242,11 +276,25 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
         funcLatchItem = JCheckBoxMenuItem("FUNC + Next Key").apply {
             toolTipText = "Hold FUNC until the next key: FUNC + a letter types a BASIC keyword"
             addActionListener {
-                if (isSelected) emulator.press(ElectronKey.FUNC) else emulator.release(ElectronKey.FUNC)
+                setFuncLatch(isSelected)
                 screen.requestFocusInWindow()
             }
         }
         add(funcLatchItem)
+        addSeparator()
+        add(JMenu("Keyboard Layout").apply {
+            val group = ButtonGroup()
+            add(JRadioButtonMenuItem("Physical (for games)", true).also { choice ->
+                choice.toolTipText = "Keys press the Electron key in the same place, so symbols follow the Electron"
+                choice.addActionListener { setNaturalLayout(false) }
+                group.add(choice)
+            })
+            add(JRadioButtonMenuItem("Natural (for typing)").also { choice ->
+                choice.toolTipText = "Keys type the character your own keyboard layout produces"
+                choice.addActionListener { setNaturalLayout(true) }
+                group.add(choice)
+            })
+        })
     }
 
     private fun item(title: String, key: KeyStroke?, action: () -> Unit) =
@@ -269,6 +317,7 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
     private fun updateTitle() {
         frame.title = "Elkslop - Acorn Electron" +
             (if (capsLock) "  [CAPS]" else "") +
+            (if (naturalLayout) "  [NATURAL]" else "") +
             (tapeName?.let { "  [$it]" } ?: "") +
             (if (emulator.fastTape) "  [FAST]" else "") +
             (if (motorRunning) "  [MOTOR]" else "") +
@@ -321,7 +370,10 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
         JOptionPane.showMessageDialog(
             frame,
             """
-            Keys map by position, so shifted symbols follow the Electron keyboard:
+            Keys > Keyboard Layout chooses how keys map. [NATURAL] in the title bar shows it.
+            Natural types the character your own keyboard produces. Letters still follow
+            CAPS LK, and the key you pressed last replaces any key still held down.
+            Physical, the default, is for games and keeps the Electron's symbols:
               Shift+2 = "    Shift+' = *    Shift+; = +    Shift+- = =    Shift+0 = @
 
             Electron key        Host key
@@ -331,7 +383,7 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
             ESCAPE              Esc
             BREAK               F12   (Ctrl+F12 = hard reset; Shift+F12 = autoboot)
             Cursor keys         Arrows
-            ^ ~ / | \ / £ { / _ }    = / \ / [ / ]   (the Electron's cursor keys)
+            ^ ~ / | \ / £ { / _ }    = / \ / [ / ]   (Physical; the Electron's cursor keys)
 
             The Keys menu taps COPY, [ and ], CAPS LK, ESCAPE, BREAK variants and f0-f9.
             FUNC + Next Key holds FUNC for the next key you press.
