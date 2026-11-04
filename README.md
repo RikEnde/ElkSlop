@@ -55,7 +55,7 @@ Shift+2 is `"`, Shift+' is `*`, Shift+; is `+`, Shift+- is `=`, Shift+0 is `@`.
 | Electron | Host |
 |---|---|
 | CAPS LK / FUNC | Tab or Alt/Option; Shift+Tab toggles caps lock |
-| COPY | End |
+| COPY | End; Shift+End is `[`, Ctrl+End is `]` |
 | DELETE | Backspace or Delete |
 | ESCAPE | Esc |
 | BREAK | F12 (Ctrl+F12 hard reset, Shift+F12 autoboot) |
@@ -66,7 +66,7 @@ As on a real Electron, CAPS LK alone acts as FUNC; SHIFT + CAPS LK toggles caps
 lock. The title bar shows `[CAPS]` while it's on, standing in for the LED.
 
 The **Keys** menu has the keys a host keyboard lacks: BREAK, CTRL+BREAK (hard
-reset), SHIFT+BREAK (autoboot), COPY, CAPS LK, ESCAPE, DELETE, and function keys
+reset), SHIFT+BREAK (autoboot), COPY, `[`, `]`, CAPS LK, ESCAPE, DELETE, and function keys
 f0-f9 (FUNC + digit). **FUNC + Next Key** holds FUNC until you press another key,
 for FUNC + letter BASIC keyword shortcuts. Menu keys are tapped through the same
 typist as pasted text, with modifiers pressed a frame before the last key; the
