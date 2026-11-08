@@ -11,7 +11,7 @@ import javax.swing.SwingUtilities
 import kotlin.system.exitProcess
 
 const val USAGE = """Usage: elkslop [options]
-  --roms DIR          Directory with os.rom and basic.rom (default: roms)
+  --roms DIR          Directory with os.rom and basic.rom (default: built in)
   --scale 1|2|3       Window size; 1 is 640 x 512 (default: 1)
   --no-sound          Disable audio output
   --tape FILE         Put a UEF cassette image in the recorder
@@ -20,7 +20,8 @@ const val USAGE = """Usage: elkslop [options]
   --frames N          Frames to run before the screenshot (default: 150)"""
 
 data class Options(
-    val romDirectory: File = File("roms"),
+    /** Null means the ROMs built into the jar. */
+    val romDirectory: File? = null,
     val scale: Int = 1,
     val sound: Boolean = true,
     val tape: File? = null,
@@ -57,20 +58,44 @@ data class Options(
     }
 }
 
-/** The two ROMs a stock Electron needs, from roms/ by default (© Acorn). */
+/**
+ * The two ROMs a stock Electron needs (© Acorn). The build copies roms/os.rom
+ * and roms/basic.rom into the jar, so it runs from anywhere.
+ */
 class Roms(val os: ByteArray, val basic: ByteArray) {
     companion object {
-        fun load(directory: File): Roms {
+        private const val RESOURCES = "/elkslop/roms/"
+
+        /** From [directory], or the built-in ROMs if it is null. */
+        fun load(directory: File?): Roms {
             fun read(name: String): ByteArray {
-                val file = File(directory, name)
-                if (!file.isFile) throw IOException("Missing ${file.absolutePath}")
-                val bytes = file.readBytes()
-                if (bytes.size != 0x4000) throw IOException("${file.absolutePath} must be 16 KiB, was ${bytes.size} bytes")
+                val (where, bytes) = if (directory == null) {
+                    val stream = Roms::class.java.getResourceAsStream(RESOURCES + name)
+                        ?: throw IOException("The built-in $name is missing from the jar")
+                    "Built-in $name" to stream.use { it.readBytes() }
+                } else {
+                    val file = File(directory, name)
+                    if (!file.isFile) throw IOException("Missing ${file.absolutePath}")
+                    file.absolutePath to file.readBytes()
+                }
+                if (bytes.size != 0x4000) throw IOException("$where must be 16 KiB, was ${bytes.size} bytes")
                 return bytes
             }
             return Roms(read("os.rom"), read("basic.rom"))
         }
     }
+}
+
+/**
+ * Where Insert Tape starts browsing: tapes/ in the current directory, else
+ * tapes/ beside the jar, which is where the packaged app keeps its cassettes.
+ */
+fun defaultTapeDirectory(): File {
+    val here = File("tapes")
+    if (here.isDirectory) return here.absoluteFile
+    val jar = runCatching { File(Roms::class.java.protectionDomain.codeSource.location.toURI()) }.getOrNull()
+    val beside = jar?.parentFile?.let { File(it, "tapes") }
+    return if (beside?.isDirectory == true) beside else here.absoluteFile
 }
 
 fun main(args: Array<String>) {

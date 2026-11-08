@@ -326,7 +326,7 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
 
     private fun chooseTape() {
         val dialog = FileDialog(frame, "Insert Tape", FileDialog.LOAD)
-        dialog.directory = File("tapes").absolutePath
+        dialog.directory = defaultTapeDirectory().path
         dialog.isVisible = true
         val name = dialog.file
         if (name != null) insertTape(File(dialog.directory, name))

@@ -28,17 +28,36 @@ Through Gradle instead:
 ./gradlew :desktop:run --args="--scale 2"
 ```
 
-Or build a standalone jar and run it with any JDK 17+:
+Or build a standalone jar and run it with any JDK 17+. The OS and BASIC ROMs
+are built into the jar, so it runs from any directory:
 
 ```sh
 JAVA_HOME="$PWD/.tools/jdk" ./gradlew :desktop:fatJar
-java -jar desktop/build/libs/elkslop.jar --roms roms
+java -jar desktop/build/libs/elkslop.jar
 ```
+
+### Standalone app
+
+To get an app that needs neither Gradle nor an installed Java, build it with
+`jpackage`. It bundles a trimmed Java runtime (about 80 MB in all) and the
+cassettes in `tapes/`, and Insert Tape opens on those:
+
+```sh
+JAVA_HOME="$PWD/.tools/jdk" ./gradlew :desktop:packageApp   # desktop/build/jpackage/app-image/Elkslop.app
+JAVA_HOME="$PWD/.tools/jdk" ./gradlew :desktop:packageDmg   # desktop/build/jpackage/dmg/Elkslop-1.0.0.dmg
+```
+
+`jpackage` comes with JDK 17+, and the tasks use the JDK that runs Gradle. It
+only builds for the OS it runs on. On Windows and Linux, `packageApp` makes a
+folder holding the launcher. `packageDmg` is macOS only. There are no tasks yet for
+`jpackage`'s `exe`/`msi` or `deb`/`rpm` installers. The app isn't signed with a Developer ID,
+so macOS blocks it the first time: right-click it and choose Open. Options work
+too, for example `Elkslop.app/Contents/MacOS/Elkslop --scale 2`.
 
 Options:
 
 ```
---roms DIR          Directory with os.rom and basic.rom (default: roms)
+--roms DIR          Directory with os.rom and basic.rom (default: built in)
 --scale 1|2|3       Window size; 1 is 640 x 512 (default: 1)
 --no-sound          Disable audio output
 --tape FILE         Put a UEF cassette image in the recorder
@@ -373,8 +392,9 @@ they relate to our ROMs.
 
 `roms/os.rom` and `roms/basic.rom` are the Electron ROM images, each 16 KiB,
 included in the repository so the emulator works straight after cloning. The
-desktop app and the ROM tests use them; they are not packaged into any library.
-They are © Acorn and not covered by Elkslop's licence (see [License](#license)).
+ROM tests use them, and the desktop build copies them into its jar and app. They
+are not packaged into the `cpu` or `electron` libraries. They are © Acorn and
+not covered by Elkslop's licence (see [License](#license)).
 
 - `os.rom` is a direct dump of the OS 1.00 chip, from
   [tom-seddon/electron_os_disassembly](https://github.com/tom-seddon/electron_os_disassembly)
