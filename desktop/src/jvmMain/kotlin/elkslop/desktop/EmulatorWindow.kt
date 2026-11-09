@@ -407,7 +407,6 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
 
     private companion object {
         const val VOLUME = 0.25f
-        const val BOOT_FRAMES = 100
         val MODIFIERS = setOf(ElectronKey.SHIFT, ElectronKey.CONTROL, ElectronKey.FUNC)
     }
 }
