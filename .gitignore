@@ -11,6 +11,11 @@
 roms/*
 !roms/os.rom
 !roms/basic.rom
+tapes/*
+!tapes/intro-english.uef
+!tapes/intro-german.uef
+!tapes/peeko-english.uef
+!tapes/README.md
 
 # Third-party ROM source reconstructions: no licence, so kept locally for
 # reference and never published. Only our README about them is tracked.

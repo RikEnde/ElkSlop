@@ -63,8 +63,30 @@ Options:
 --tape FILE         Put a UEF cassette image in the recorder
 --type TEXT         Type TEXT after boot; \n starts a new line
 --screenshot FILE   Save a PNG of the window, then exit
---frames N          Frames to run before the screenshot (default: 150)
+--disassemble A-B   Run without a window, then print the machine code from hex address
+                    A to B, as in --disassemble D940-D9FF; with --screenshot, the
+                    picture comes from the same run
+--origin ADDR       Number the listing from hex ADDR, for code that is copied there to run
+--frames N          Frames to run before the screenshot or listing (default: 150)
 ```
+
+`--disassemble` lists memory as the CPU sees it after the run (RAM, the paged
+ROM or the OS), reading it without side effects. Run a program first with
+`--type`, and raise `--frames` for one that loads from tape. Addresses take an
+optional `$`, `&` or `0x`. The listing uses `$` hex, marks undocumented opcodes
+with `*`, and follows the format of C64slop's disassembler:
+
+```sh
+./run.sh --disassemble FFE3-FFF9
+FFE3  C9 0D     CMP #$0D
+FFE5  D0 07     BNE $FFEE
+...
+FFEE  6C 0E 02  JMP ($020E)
+```
+
+The disassembler itself is `cpu/src/commonMain/kotlin/elkslop/cpu/Disassembler.kt`.
+It knows no machine: it reads through a side-effect-free `peek` and can take a
+function that names addresses, so a front end can show `JSR OSWRCH`.
 
 ### Keyboard
 
