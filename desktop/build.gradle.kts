@@ -8,7 +8,13 @@ plugins {
 // The desktop front end is JVM-only (Swing + javax.sound). All emulation lives
 // in the platform-independent :electron and :cpu modules.
 kotlin {
-    jvm()
+    jvm {
+        // Java 17 bytecode and API, whichever JDK runs the build, so the jar runs on 17+.
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            freeCompilerArgs.add("-Xjdk-release=17")
+        }
+    }
 
     sourceSets {
         jvmMain.dependencies { implementation(project(":electron")) }

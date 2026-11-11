@@ -6,7 +6,13 @@ plugins {
 }
 
 kotlin {
-    jvm()
+    jvm {
+        // Java 17 bytecode and API, whichever JDK runs the build, so the jar runs on 17+.
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            freeCompilerArgs.add("-Xjdk-release=17")
+        }
+    }
     macosArm64()
     macosX64()
     linuxArm64()
