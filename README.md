@@ -145,8 +145,8 @@ tapes lives in `jvmTest`; its JVM file APIs are not production dependencies. Onl
 
 ## Build and test
 
-Use a JDK 17 or newer. The Gradle wrapper pins Gradle 8.10 and verifies its
-archive checksum; Kotlin is pinned to 2.2.21.
+Use a JDK 17 or newer. The Gradle wrapper pins Gradle 9.7.0
+and verifies its archive checksum; Kotlin is pinned to 2.4.21.
 
 ```sh
 ./gradlew :cpu:jvmTest :electron:jvmTest :desktop:jvmTest

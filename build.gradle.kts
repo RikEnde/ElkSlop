@@ -2,5 +2,5 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 plugins {
-    kotlin("multiplatform") version "2.2.21" apply false
+    kotlin("multiplatform") version "2.4.21" apply false
 }
