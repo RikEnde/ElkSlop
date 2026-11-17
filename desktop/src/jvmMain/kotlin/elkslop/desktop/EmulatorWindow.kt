@@ -3,7 +3,9 @@
 
 package elkslop.desktop
 
+import elkslop.debugger.DebuggerWindow
 import elkslop.electron.ElectronKey
+import elkslop.electron.ElectronLabels
 import elkslop.electron.ElectronMachine
 import java.awt.BorderLayout
 import java.awt.FileDialog
@@ -51,6 +53,9 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
     @Volatile private var capsLock = false
     @Volatile private var motorRunning = false
     private var tapeName: String? = null
+    private val debuggerWindow by lazy {
+        DebuggerWindow(emulator.debugTarget, "Elkslop Debugger", ElectronLabels::forAddress, AppIcon::install)
+    }
 
     fun show() {
         frame.defaultCloseOperation = WindowConstants.DISPOSE_ON_CLOSE
@@ -78,6 +83,7 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
         frame.isVisible = true
         screen.requestFocusInWindow()
 
+        for (address in options.breakpoints) emulator.setBreakpoint(address, true)
         options.tape?.let { insertTape(it) }
         options.typeText?.let { emulator.type(it, delayFrames = BOOT_FRAMES) }
         emulator.start()
@@ -113,6 +119,17 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
     override fun motorChanged(on: Boolean) {
         motorRunning = on
         SwingUtilities.invokeLater { updateTitle() }
+    }
+
+    override fun pausedChanged(paused: Boolean) {
+        SwingUtilities.invokeLater {
+            pauseItem.isSelected = paused
+            updateTitle()
+        }
+    }
+
+    override fun debuggerStopped() {
+        SwingUtilities.invokeLater { debuggerWindow.show() }
     }
 
     private val keyListener = object : KeyAdapter() {
@@ -223,6 +240,14 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
                     emulator.fastTape = isSelected
                     updateTitle()
                 }
+            })
+        })
+        add(JMenu("Debug").apply {
+            add(item("Debugger...", shortcut(KeyEvent.VK_D)) { debuggerWindow.show() })
+            add(item("Break into Debugger", null) {
+                emulator.paused = true
+                updateTitle()
+                debuggerWindow.show()
             })
         })
         add(JMenu("View").apply {

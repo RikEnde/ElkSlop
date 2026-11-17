@@ -3,6 +3,8 @@
 
 package elkslop.desktop
 
+import elkslop.debugger.DebugSession
+import elkslop.debugger.DebugTarget
 import elkslop.electron.ElectronClock
 import elkslop.electron.ElectronKey
 import elkslop.electron.ElectronMachine
@@ -37,6 +39,12 @@ class Emulator(
 
         /** Called on the emulation thread when the cassette motor starts or stops. */
         fun motorChanged(on: Boolean) {}
+
+        /** Called on the emulation thread when the machine pauses or runs again, for any reason. */
+        fun pausedChanged(paused: Boolean) {}
+
+        /** Called on the emulation thread when the debugger stops the machine. */
+        fun debuggerStopped() {}
     }
 
     private val commands = ConcurrentLinkedQueue<(ElectronMachine) -> Unit>()
@@ -49,6 +57,20 @@ class Emulator(
     private var capsLockLed: Boolean? = null
     private var motorRunning = false
     private var tape: UefTape? = null
+
+    /** Breakpoints, stepping and snapshots; only the emulation thread touches it. */
+    private val debug = DebugSession({ machine.bus.peek(it) })
+
+    /** The frame whose once-a-frame work (typing, keys) is done, so stopping mid-frame doesn't repeat it. */
+    private var preparedFrame = -1L
+    private var reportedPaused = false
+
+    /** For the debugger window: its requests reach [debug] through the command queue. */
+    val debugTarget: DebugTarget = debug.target(
+        post = { block -> post { block() } },
+        cpu = { machine.cpu },
+        setPaused = { paused = it },
+    )
 
     @Volatile private var running = false
     @Volatile var paused = false
@@ -103,10 +125,14 @@ class Emulator(
     /** Press keys together briefly, for keys a menu click can't hold down. */
     fun tap(vararg keys: ElectronKey) = post { typer.enqueueChord(keys.toList()) }
 
+    /** Set or clear a breakpoint, as for --break; the debugger window has [debugTarget]. */
+    fun setBreakpoint(address: Int, on: Boolean) = debugTarget.setBreakpoint(address, on)
+
     /** Switch off and on: fresh RAM, ULA power-on state, and cold OS start. */
     fun powerCycle() = post {
         typer.cancel(it)
         natural.reset()
+        preparedFrame = -1
         machine = createMachine().also { fresh ->
             fresh.reset()
             fresh.ula.cassette.port = tape // The cassette stays in the recorder.
@@ -154,7 +180,14 @@ class Emulator(
                     machine.ula.sound.startSampling(SAMPLE_RATE, samples.size)
                     soundMachine = machine
                 }
-                if (paused) {
+                val isPaused = paused
+                if (isPaused != reportedPaused) {
+                    reportedPaused = isPaused
+                    debug.pausedChanged(isPaused)
+                    listener.pausedChanged(isPaused)
+                }
+                debug.tick(machine.cpu, isPaused, frameCount)
+                if (isPaused) {
                     Thread.sleep(10)
                     paceStart = System.nanoTime()
                     paceTicks = 0
@@ -199,12 +232,25 @@ class Emulator(
     /** Runs until the ULA completes a frame; returns the elapsed machine ticks. */
     private fun runFrame(): Long {
         val machine = machine
-        typer.onFrame(machine)
-        natural.onFrame(machine.keyboard)
         val video = machine.ula.video
         val frame = video.frameNumber
+        if (frame != preparedFrame) {
+            preparedFrame = frame
+            typer.onFrame(machine)
+            natural.onFrame(machine.keyboard)
+        }
         val start = machine.clock.ticks
-        while (video.frameNumber == frame) machine.step()
+        val cpu = machine.cpu
+        val debug = debug
+        while (video.frameNumber == frame) {
+            if (debug.shouldStop(cpu)) {
+                paused = true
+                listener.debuggerStopped()
+                return machine.clock.ticks - start
+            }
+            machine.step()
+            debug.stepped(cpu)
+        }
         synchronized(frameLock) { video.copyFrameInto(published) }
         listener.frameReady(++frameCount)
         val caps = machine.ula.capsLockLed
@@ -221,8 +267,10 @@ class Emulator(
             // Like the real machine, a jammed CPU leaves the display running and
             // only BREAK recovers it. Pause so the user knows why it froze.
             paused = true
+            val address = (machine.cpu.programCounter - 1) and 0xFFFF
+            debug.stopped("Halted by JAM at $%04X".format(address))
             listener.stopped(IllegalStateException(
-                "The 6502 executed a JAM opcode at &%04X and halted.".format(machine.cpu.programCounter - 1),
+                "The 6502 executed a JAM opcode at &%04X and halted.".format(address),
             ))
         }
         return machine.clock.ticks - start
