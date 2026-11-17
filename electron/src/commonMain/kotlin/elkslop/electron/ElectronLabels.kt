@@ -8,6 +8,9 @@ package elkslop.electron
  * entry points at the top of memory (shared with the BBC Micro), the OS
  * vectors in page 2, and the ULA's registers. A debugger or disassembler can
  * show `JSR OSWRCH` instead of `JSR $FFEE`.
+ *
+ * The OS entry point and vector names are Acorn's, as given in the Advanced
+ * User Guide (see ACKNOWLEDGEMENTS.md). The `ULA_` names are Elkslop's own.
  */
 object ElectronLabels {
     private val names: Map<Int, String> = mapOf(

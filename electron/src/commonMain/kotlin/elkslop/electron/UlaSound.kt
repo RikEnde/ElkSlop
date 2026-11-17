@@ -14,7 +14,8 @@ class UlaSound internal constructor() {
     private var ticksRemaining = 32
 
     // A full wave is 64 * (divider + 1) ticks: 31,250 / (divider + 1) Hz.
-    // This agrees with measured hardware and MAME; EAUG's formula is twice this.
+    // This agrees with measured hardware and MAME; the Electron Advanced User
+    // Guide's formula gives twice this.
     val halfPeriodTicks: Int get() = 32 * (divider + 1)
     val outputLevel: Int get() = if (!enabled) 0 else if (outputHigh) 1 else -1
 

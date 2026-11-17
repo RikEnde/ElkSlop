@@ -72,7 +72,7 @@ class RomBootTest {
         block(machine)
     }
 
-    /** Writes the last completed frame, doubling lines for a 4:3-ish aspect. */
+    /** Writes the last completed frame at 640 x 512, each line doubled, as the window shows it. */
     private fun ElectronMachine.saveFrame(file: File) {
         val image = BufferedImage(UlaVideo.WIDTH, UlaVideo.HEIGHT * 2, BufferedImage.TYPE_INT_RGB)
         for (y in 0 until UlaVideo.HEIGHT) for (x in 0 until UlaVideo.WIDTH) {
