@@ -22,7 +22,7 @@ const val USAGE = """Usage: elkslop [options]
   --scale 1|2|3       Window size; 1 is 640 x 512 (default: 1)
   --no-sound          Disable audio output
   --tape FILE         Put a UEF cassette image in the recorder
-  --type TEXT        Type TEXT after boot; \n starts a new line
+  --type TEXT         Type TEXT after boot; \n starts a new line
   --screenshot FILE   Save a PNG of the window, then exit
   --disassemble A-B   Run without a window, then print the machine code from hex address
                       A to B, as in --disassemble D940-D9FF; with --screenshot, the

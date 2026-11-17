@@ -229,7 +229,10 @@ class Emulator(
     /** Past the end of the tape there's nothing to hurry towards. */
     private fun readingTape() = machine.ula.cassette.receiving && tape?.atEnd == false
 
-    /** Runs until the ULA completes a frame; returns the elapsed machine ticks. */
+    /**
+     * Runs until the ULA completes a frame, or until the debugger stops the
+     * machine partway through one; returns the elapsed machine ticks.
+     */
     private fun runFrame(): Long {
         val machine = machine
         val video = machine.ula.video

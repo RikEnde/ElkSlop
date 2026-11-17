@@ -120,8 +120,8 @@ class DebuggerTest {
 
     @Test
     fun stepOverWaitsForTheSameStackLevel() {
-        // $5000 calls itself once, via JSR $5000 at $5003: a recursive call
-        // returns to $5006 first, deeper in the stack, which must not count.
+        // $5000 calls itself once, via JSR $5000 at $5005: the recursive call
+        // returns to $5008 first, deeper in the stack, which must not count.
         ram.program(0x5000, 0xE8, 0xE0, 0x02, 0xB0, 0x03, 0x20, 0x00, 0x50, 0x60)
         // INX / CPX #2 / BCS +3 / JSR $5000 / RTS
         cpu.loadState(CpuState(programCounter = 0x5005, x = 0, stackPointer = 0xF0))

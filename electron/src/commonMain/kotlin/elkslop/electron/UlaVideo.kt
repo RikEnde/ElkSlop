@@ -10,7 +10,9 @@ package elkslop.electron
  * are repeated horizontally. Text modes include their two blank raster lines.
  *
  * We alternate 312/313 whole lines for a 50 Hz average. This does not reproduce
- * PAL half-line/interlace sync. See the hardware notes for the chosen phase.
+ * PAL half-line/interlace sync. The real-time clock interrupt is raised as line
+ * 100 starts, and display end as the first line after the display starts, not
+ * 24-40 cycles after its last pixel as on the real ULA.
  */
 class UlaVideo internal constructor(
     private val ram: ByteArray,

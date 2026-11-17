@@ -1,12 +1,14 @@
 # Elkslop
 
-An Acorn Electron emulator being built in Kotlin. It has three modules:
+An Acorn Electron emulator being built in Kotlin. It has four modules:
 
-- `cpu`: a standalone NMOS 6502 CPU, all 256 opcodes.
+- `cpu`: a standalone NMOS 6502 CPU, all 256 opcodes, with a disassembler and
+  the core of a debugger.
 - `electron`: the ULA, memory map, machine clock, and a headless `ElectronMachine`
   that boots the real OS and BASIC ROMs.
-- `desktop`: a JVM window (Swing) with keyboard, sound, paste-as-typing, and a
-  cassette recorder.
+- `debugger`: a Swing debugger window for any machine built on `cpu`.
+- `desktop`: a JVM window (Swing) with keyboard, sound, paste-as-typing, a
+  cassette recorder and the debugger.
 
 The OS and BASIC ROMs are included (see [ROMs](#roms)), so it runs straight
 after cloning. So are some cassettes, including the Electron's Introductory
@@ -92,8 +94,9 @@ It knows no machine: it reads through a side-effect-free `peek` and can take a
 function that names addresses, so a front end can show `JSR OSWRCH`.
 
 With `--break`, a headless run stops as soon as the CPU is about to execute
-that address; `--frames` is then the most it runs. To see Elite's entry point
-once its loaders have done their work:
+that address; `--frames` is then the most it runs. For example, to see Elite's
+entry point once its loaders have done their work (Elite isn't in the
+repository; this assumes a copy of the UEF in `tapes/`):
 
 ```sh
 ./run.sh --tape tapes/elite-electron-ib-superior.uef --type 'CHAIN ""\n' \
@@ -169,7 +172,7 @@ The **Keys** menu has the keys a host keyboard lacks: BREAK, CTRL+BREAK (hard
 reset), SHIFT+BREAK (autoboot), COPY, `[`, `]`, CAPS LK, ESCAPE, DELETE, and function keys
 f0-f9 (FUNC + digit), plus the layout choice. **FUNC + Next Key** holds FUNC until you press another key,
 for FUNC + letter BASIC keyword shortcuts. Menu keys are tapped through the same
-typist as pasted text, with modifiers pressed a frame before the last key; the
+typist as pasted text, with modifiers pressed two frames before the last key; the
 OS ignores FUNC + digit if both go down in the same frame.
 
 **Help > Keyboard** shows this mapping in the app. F9 pauses. **Edit > Paste as Typing** (Cmd+V on macOS, Ctrl+Shift+V elsewhere)
@@ -375,6 +378,9 @@ the CPU may access RAM, so those parts cannot be separated cleanly.
 - `ElectronUla.kt`: the register file (repeated every 16 bytes in page FE).
 - `UlaInterrupts.kt`, `UlaVideo.kt`, `UlaPalette.kt`, `UlaSound.kt`,
   `UlaCassette.kt`, `KeyboardMatrix.kt`: one ULA function each.
+- `UefTape.kt`: a cassette played from a UEF image.
+- `ElectronLabels.kt`: names for the OS entry points, the vectors and the ULA
+  registers, for the disassembler and the debugger.
 
 Video renders the last completed frame as 640 x 256 0xRRGGBB pixels via
 `ula.video.pixel()`, `copyFrame()` or `copyFrameInto()`. Sound exposes the
@@ -441,21 +447,24 @@ Its tests drive a session with a bare `Cpu6502` on RAM and a fake command queue.
 - `NaturalKeyboard.kt`: the Natural layout's modifier overrides and event queue.
 - `KeyMapping.kt`, `TextTyper.kt`: host key mappings, and the typist behind
   paste-as-typing and the Keys menu (each key held for 3 frames, released for 3,
-  with a longer pause after RETURN; modifiers go down a frame before the last key).
+  with a longer pause after RETURN; modifiers go down two frames before the last key).
 - `TapeFile.kt`: reads UEF images, gzipped or plain.
-- `EmulatorWindow.kt`, `Main.kt`: menus, options, and ROM loading. The Debug
+- `EmulatorWindow.kt`, `Main.kt`: menus, options, ROM loading, the headless
+  `--disassemble` run, and the host's own Swing look and feel. The Debug
   menu opens the `debugger` module's window on `Emulator.debugTarget`, with
   `ElectronLabels` (in `electron`) naming the OS entry points, vectors and ULA
   registers.
 - `AppIcon.kt`: the pixel-art acorn used as the window and Dock icon, drawn
-  from a 32 x 32 grid in code.
+  from a 32 x 32 grid in code. `IconExport.kt` writes it out for `jpackage`.
 
 `desktop` tests type every mappable symbol into BASIC on the real ROMs and check
 the result on screen. They also check that SHIFT + CAPS LK toggles caps lock
 (and CAPS LK alone doesn't), that FUNC + 1 runs a `*KEY1` definition, that
-CTRL stays held through a CTRL + BREAK reset, that tape images load gzipped or
+CTRL stays held through a CTRL + BREAK reset, that the Natural layout keeps every
+symbol however fast the keys roll over, that tape images load gzipped or
 plain, that Fast Loading loads a whole program quickly and speeds up only while a
-tape is playing, and that the icon renders.
+tape is playing, that `--disassemble` and `--break` parse and run (stopping in
+the OS's IRQ handler), and that the icon renders.
 
 ## License
 

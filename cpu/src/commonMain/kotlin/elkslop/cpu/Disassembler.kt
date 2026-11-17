@@ -126,9 +126,8 @@ class Disassembler(
      * backwards for certain, as any byte might be an operand. This decodes
      * forwards from three bytes per instruction back, then from one byte
      * nearer each time, and keeps the first run that lands exactly on
-     * [address]; 6502 code falls
-     * into step within a few instructions, so the ones nearest [address] are
-     * very likely right. Empty if no run lands on it.
+     * [address]; 6502 code falls into step within a few instructions, so the
+     * ones nearest [address] are very likely right. Empty if no run lands on it.
      */
     fun before(address: Int, count: Int): List<DisassembledInstruction> {
         for (back in 3 * count downTo 1) {
