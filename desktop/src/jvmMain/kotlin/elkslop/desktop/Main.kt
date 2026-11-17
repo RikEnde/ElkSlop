@@ -3,6 +3,7 @@
 
 package elkslop.desktop
 
+import elkslop.cpu.Debugger
 import elkslop.cpu.Disassembler
 import elkslop.electron.ElectronMachine
 import elkslop.electron.UlaVideo
@@ -13,6 +14,7 @@ import java.io.IOException
 import javax.imageio.ImageIO
 import javax.swing.JOptionPane
 import javax.swing.SwingUtilities
+import javax.swing.UIManager
 import kotlin.system.exitProcess
 
 const val USAGE = """Usage: elkslop [options]
@@ -26,7 +28,10 @@ const val USAGE = """Usage: elkslop [options]
                       A to B, as in --disassemble D940-D9FF; with --screenshot, the
                       picture comes from the same run
   --origin ADDR       Number the listing from hex ADDR, for code that is copied there to run
-  --frames N          Frames to run before the screenshot or listing (default: 150)"""
+  --frames N          Frames to run before the screenshot or listing (default: 150)
+  --break ADDR        Stop at hex ADDR and open the debugger; repeat for more. Without
+                      a window (with --disassemble), the run ends there instead and
+                      the registers are printed before the listing"""
 
 data class Options(
     /** Null means the ROMs built into the jar. */
@@ -42,6 +47,8 @@ data class Options(
     val disassemble: IntRange? = null,
     /** Where the code in [disassemble] runs from, if it is copied there first; null for where it is. */
     val origin: Int? = null,
+    /** Breakpoints to set before the machine starts. */
+    val breakpoints: List<Int> = emptyList(),
 ) {
     companion object {
         fun parse(args: Array<String>): Options {
@@ -62,6 +69,8 @@ data class Options(
                     "--disassemble" -> options.copy(disassemble = parseRange(value()))
                     "--origin" -> options.copy(origin = address(value())
                         ?: throw IllegalArgumentException("--origin needs a hex address, as in 0E00"))
+                    "--break" -> options.copy(breakpoints = options.breakpoints + (address(value())
+                        ?: throw IllegalArgumentException("--break needs a hex address, as in 3FB6")))
                     "--help", "-h" -> {
                         println(USAGE)
                         exitProcess(0)
@@ -134,25 +143,38 @@ fun defaultTapeDirectory(): File {
     return if (beside?.isDirectory == true) beside else here.absoluteFile
 }
 
+/** The machine after [runHeadless], and the breakpoint it stopped at, if it did. */
+class HeadlessRun(val machine: ElectronMachine, val breakpoint: Int?)
+
 /**
  * Builds a machine and runs [Options.screenshotFrames] frames (50ths of a
  * second) as fast as possible, with the tape and text from [options], and on
  * until the text is typed. The tape plays only if the text starts it.
+ *
+ * With [Options.breakpoints], the run ends as soon as the CPU is about to
+ * execute one of them; the frame count is then the most it runs.
  */
-fun runHeadless(roms: Roms, options: Options): ElectronMachine {
+fun runHeadless(roms: Roms, options: Options): HeadlessRun {
     val machine = ElectronMachine(roms.os, roms.basic).also { it.reset() }
     options.tape?.let { machine.ula.cassette.port = TapeFile.load(it) }
     val typer = TextTyper()
     options.typeText?.let { typer.enqueue(it, delayFrames = BOOT_FRAMES) }
+    val debugger = Debugger(machine.bus::peek)
+    for (address in options.breakpoints) debugger.setBreakpoint(address)
     var frames = 0
     while (frames < options.screenshotFrames || typer.busy) {
         typer.onFrame(machine)
         val video = machine.ula.video
         val frame = video.frameNumber
-        while (video.frameNumber == frame) machine.step()
+        while (video.frameNumber == frame) {
+            if (debugger.active && debugger.shouldStop(machine.cpu)) {
+                return HeadlessRun(machine, machine.cpu.programCounter)
+            }
+            machine.step()
+        }
         frames++
     }
-    return machine
+    return HeadlessRun(machine, null)
 }
 
 /**
@@ -180,12 +202,27 @@ fun saveScreenshot(machine: ElectronMachine, file: File) {
     ImageIO.write(image, "png", file)
 }
 
+/**
+ * Swing draws its own cross-platform look (Metal) unless told otherwise. Use the
+ * host's instead: Aqua on macOS, Windows on Windows, GTK where available. Must run
+ * before any component is made; if the host's look fails to load, Metal stays.
+ */
+fun useSystemLookAndFeel() {
+    if (GraphicsEnvironment.isHeadless()) return
+    try {
+        UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
+    } catch (e: Exception) {
+        System.err.println("Keeping Swing's own look: ${e.message}")
+    }
+}
+
 /** Frames the OS needs to start before typing; the window waits as long. */
 const val BOOT_FRAMES = 100
 
 fun main(args: Array<String>) {
     System.setProperty("apple.awt.application.name", "Elkslop")
     System.setProperty("apple.laf.useScreenMenuBar", "true")
+    useSystemLookAndFeel()
 
     val options = try {
         Options.parse(args)
@@ -205,11 +242,18 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
     options.disassemble?.let {
-        val machine = try {
+        val run = try {
             runHeadless(roms, options)
         } catch (e: IOException) {
             System.err.println("Couldn't load the tape: ${e.message}")
             exitProcess(1)
+        }
+        val machine = run.machine
+        if (options.breakpoints.isNotEmpty()) {
+            println(
+                if (run.breakpoint != null) "Breakpoint at %04X: %s".format(run.breakpoint, machine.cpu.state().summary)
+                else "No breakpoint reached in ${options.screenshotFrames} frames: ${machine.cpu.state().summary}",
+            )
         }
         println(disassemble(machine, it, options.origin ?: it.first))
         options.screenshot?.let { file ->

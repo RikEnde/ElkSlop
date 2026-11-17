@@ -77,7 +77,9 @@ Licenses and pinned versions for the test fixtures are in
 ## Documentation
 
 - The *Acorn Electron Advanced User Guide*, for the ULA's registers, palette
-  wiring and sound.
+  wiring and sound, and the names of the OS entry points (`OSWRCH`, `OSBYTE` and
+  so on) and vectors (`WRCHV`, `IRQ1V` and so on) that the debugger shows. Acorn
+  gave them those names, and the BBC Micro uses them too.
 - The Acorn community, especially the [StarDot forums](https://stardot.org.uk),
   where much of this knowledge is kept alive.
 

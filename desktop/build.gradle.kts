@@ -17,7 +17,10 @@ kotlin {
     }
 
     sourceSets {
-        jvmMain.dependencies { implementation(project(":electron")) }
+        jvmMain.dependencies {
+            implementation(project(":electron"))
+            implementation(project(":debugger"))
+        }
         jvmTest.dependencies { implementation(kotlin("test")) }
     }
 }

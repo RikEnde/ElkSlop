@@ -68,6 +68,9 @@ Options:
                     picture comes from the same run
 --origin ADDR       Number the listing from hex ADDR, for code that is copied there to run
 --frames N          Frames to run before the screenshot or listing (default: 150)
+--break ADDR        Stop at hex ADDR and open the debugger; repeat for more. Without
+                    a window (with --disassemble), the run ends there instead and
+                    the registers are printed before the listing
 ```
 
 `--disassemble` lists memory as the CPU sees it after the run (RAM, the paged
@@ -87,6 +90,50 @@ FFEE  6C 0E 02  JMP ($020E)
 The disassembler itself is `cpu/src/commonMain/kotlin/elkslop/cpu/Disassembler.kt`.
 It knows no machine: it reads through a side-effect-free `peek` and can take a
 function that names addresses, so a front end can show `JSR OSWRCH`.
+
+With `--break`, a headless run stops as soon as the CPU is about to execute
+that address; `--frames` is then the most it runs. To see Elite's entry point
+once its loaders have done their work:
+
+```sh
+./run.sh --tape tapes/elite-electron-ib-superior.uef --type 'CHAIN ""\n' \
+    --frames 30000 --break 3FB6 --disassemble 3FB6-3FC0
+Breakpoint at 3FB6: PC=3FB6 A=3F X=FF Y=00 SP=FF P=21 nv-bdizC
+3FB6  A2 FF     LDX #$FF
+...
+```
+
+### Debugger
+
+**Debug > Debugger...** (Cmd+D on macOS, Ctrl+Shift+D elsewhere) opens a window
+on the running machine. It shows the code around the PC, the registers and
+flags, the stack, the breakpoints and a memory dump. While the machine runs they
+update ten times a second. When it stops, the code view jumps to the next
+instruction to run, marked `▶`.
+
+| Key | Button | |
+|---|---|---|
+| F5 | Continue | Run until a breakpoint |
+| F6 | Pause | Stop at the end of the frame (also Machine > Pause, F9 in the main window) |
+| F7 | Step Into | Run one instruction, or take one interrupt |
+| F8 | Step Over | Run one instruction; a JSR runs until it returns, and interrupts run to their RTI |
+| Shift+F8 | Step Out | Run until the current subroutine or interrupt handler returns |
+| F9 | | Toggle the breakpoint on the selected line |
+
+On macOS, hold Fn for the function keys if they control the Mac.
+
+Click a line's left edge, or double-click it, to toggle its breakpoint
+(shown `●`). Right-click a line to run to it, or to show the code or memory its
+operand names. **Go to** takes a hex address or an OS name such as `OSWRCH`, and
+stops the view following the PC until you click **Follow PC** again or the
+machine stops. Scroll the memory dump with the mouse wheel. Breakpoints stop the
+machine before their instruction runs, and stay set when the window closes.
+**Debug > Break into Debugger** pauses the machine and opens the window.
+
+Stepping can stop in the middle of a frame; the screen shows the last whole
+frame until the machine finishes the next one. Lines above the PC are found by
+decoding forwards from a little way back, so after data they may be wrong; the
+lines from the PC on are always right.
 
 ### Keyboard
 
@@ -141,7 +188,8 @@ targets.
 JVM is one way to run the same core, not a requirement of its design. The shared
 unit tests also run as native executables. Loading test fixtures, ROM files and
 tapes lives in `jvmTest`; its JVM file APIs are not production dependencies. Only the
-`desktop` front end is JVM-only, because it uses Swing and `javax.sound`.
+`desktop` front end and the `debugger` window are JVM-only, because they use Swing
+(and the front end `javax.sound`).
 
 ## Build and test
 
@@ -149,7 +197,7 @@ Use a JDK 17 or newer. The Gradle wrapper pins Gradle 9.7.0
 and verifies its archive checksum; Kotlin is pinned to 2.4.21.
 
 ```sh
-./gradlew :cpu:jvmTest :electron:jvmTest :desktop:jvmTest
+./gradlew :cpu:jvmTest :electron:jvmTest :debugger:jvmTest :desktop:jvmTest
 ```
 
 On this development machine, a local JDK is available without a global install:
@@ -182,6 +230,15 @@ The production code is in `cpu/src/commonMain/kotlin/elkslop/cpu`.
 - `Cpu6502.kt`: instruction execution, address calculation, arithmetic, stack,
   and interrupt handling. Each instruction emits its actual read/write sequence;
   cycle counts are derived from those accesses rather than a separate table.
+  `lastStep` (`StepKind.kt`) says whether the last step ran an instruction, took
+  an IRQ or NMI, or idled halted.
+- `Disassembler.kt`: listings from a side-effect-free `peek`, with optional
+  names for addresses.
+- `Debugger.kt`: breakpoints, step into, over and out, and run to an address.
+  It never runs the CPU: the machine's loop asks `shouldStop(cpu)` before each
+  step and calls `stepped(cpu)` after, so timing and interrupt lines stay the
+  machine's business, and any 6502 machine can use it. `active` is false with no
+  breakpoints and no step under way, so the loop can skip both calls.
 
 ### Connecting a machine
 
@@ -342,6 +399,28 @@ Introductory Cassettes through the OS and compares RAM with the file on the tape
 Frames are written to `electron/build/test-frames/`. The boot tests skip with a
 message if the ROM files are missing; the tape tests fail.
 
+## Debugger module
+
+`debugger/src/jvmMain/kotlin/elkslop/debugger` is a Swing debugger for any 6502
+machine. It depends on `cpu` and nothing else, so another emulator built on the
+same CPU core can use it unchanged.
+
+- `DebugSession.kt`: the machine's half, used only on the emulation thread. It
+  owns the `cpu` module's `Debugger`, says in words why the machine stopped, and
+  copies the registers and all 64 KiB into a `DebugSnapshot` whenever the machine
+  stops or a breakpoint changes, and ten times a second while it runs with a
+  window watching. The machine loop calls `shouldStop`/`stepped` around each
+  step, and `pausedChanged`/`tick` once per frame.
+- `DebugTarget.kt`: what the window asks of the machine. `DebugSession.target`
+  makes one from the machine's command queue, so requests from the window's
+  thread run on the machine's thread.
+- `DebugSnapshot.kt`: the machine as the window shows it.
+- `DebuggerWindow.kt`: the window. It draws only from snapshots and sends
+  requests through its `DebugTarget`. The machine passes in a title, names for
+  addresses, and a hook for the frame (Elkslop sets its icon there).
+
+Its tests drive a session with a bare `Cpu6502` on RAM and a fake command queue.
+
 ## Desktop front end
 
 `desktop/src/jvmMain/kotlin/elkslop/desktop` is JVM-only and uses only the JDK
@@ -364,7 +443,10 @@ message if the ROM files are missing; the tape tests fail.
   paste-as-typing and the Keys menu (each key held for 3 frames, released for 3,
   with a longer pause after RETURN; modifiers go down a frame before the last key).
 - `TapeFile.kt`: reads UEF images, gzipped or plain.
-- `EmulatorWindow.kt`, `Main.kt`: menus, options, and ROM loading.
+- `EmulatorWindow.kt`, `Main.kt`: menus, options, and ROM loading. The Debug
+  menu opens the `debugger` module's window on `Emulator.debugTarget`, with
+  `ElectronLabels` (in `electron`) naming the OS entry points, vectors and ULA
+  registers.
 - `AppIcon.kt`: the pixel-art acorn used as the window and Dock icon, drawn
   from a 32 x 32 grid in code.
 
