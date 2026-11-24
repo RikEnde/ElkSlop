@@ -3,7 +3,8 @@
 
 package elkslop.cpu
 
-internal enum class AddressingMode {
+/** How an instruction finds its operand, as in `LDA #$41` (immediate) or `LDA ($70),Y` (indirect indexed). */
+enum class AddressingMode {
     IMPLIED, ACCUMULATOR, IMMEDIATE,
     ZERO_PAGE, ZERO_PAGE_X, ZERO_PAGE_Y,
     ABSOLUTE, ABSOLUTE_X, ABSOLUTE_Y,

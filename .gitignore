@@ -22,3 +22,10 @@ tapes/*
 docs/rom-sources/*
 !docs/rom-sources/README.md
 !docs/rom-sources/fetch.sh
+
+# Your own programs and the tapes built from them stay local. Only the
+# examples and the README are tracked; programs/build/ is ignored above.
+programs/*
+!programs/README.md
+!programs/hello.bas
+!programs/greeting.asm

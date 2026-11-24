@@ -1,12 +1,16 @@
 # Elkslop
 
-An Acorn Electron emulator being built in Kotlin. It has four modules:
+An Acorn Electron emulator being built in Kotlin, with tools to write programs
+for it on the host. It has five modules:
 
 - `cpu`: a standalone NMOS 6502 CPU, all 256 opcodes, with a disassembler and
   the core of a debugger.
 - `electron`: the ULA, memory map, machine clock, and a headless `ElectronMachine`
   that boots the real OS and BASIC ROMs.
 - `debugger`: a Swing debugger window for any machine built on `cpu`.
+- `devkit`: cross-development. A BBC BASIC tokeniser, a 6502 assembler in
+  the syntax of BASIC's inline assembler, and a writer for UEF tapes, so a
+  program written in `programs/` loads on the Electron with `CHAIN` or `*LOAD`.
 - `desktop`: a JVM window (Swing) with keyboard, sound, paste-as-typing, a
   cassette recorder and the debugger.
 
@@ -62,7 +66,10 @@ Options:
 --roms DIR          Directory with os.rom and basic.rom (default: built in)
 --scale 1|2|3       Window size; 1 is 640 x 512 (default: 1)
 --no-sound          Disable audio output
---tape FILE         Put a UEF cassette image in the recorder
+--tape FILE         Put a UEF cassette image in the recorder; a BASIC (.bas) or
+                    assembler (.asm) source is built onto a tape first
+--run FILE          Put FILE in the recorder as --tape does, load and run its
+                    program, with fast loading on
 --type TEXT         Type TEXT after boot; \n starts a new line
 --screenshot FILE   Save a PNG of the window, then exit
 --disassemble A-B   Run without a window, then print the machine code from hex address
@@ -105,6 +112,33 @@ Breakpoint at 3FB6: PC=3FB6 A=3F X=FF Y=00 SP=FF P=21 nv-bdizC
 3FB6  A2 FF     LDX #$FF
 ...
 ```
+
+### Writing programs
+
+Write BBC BASIC in a `.bas` file or 6502 assembler in a `.asm` file, and run it
+on the emulated Electron in one step:
+
+```sh
+./run.sh --run programs/hello.bas
+./run.sh --run programs/greeting.asm
+```
+
+`--run` builds the source onto a tape, puts it in the recorder, turns Fast
+Loading on and types the command that loads and runs it: `CHAIN"hello"` for
+BASIC, or `*LOAD greeting` then `CALL &2000` for machine code. Insert Tape and
+`--tape` take sources too. Mistakes are reported with the file and line, as in
+`programs/greeting.asm:14: No such label or constant: mesage`.
+
+To make UEF tapes to keep, or to load on another emulator or a real Electron
+through a cassette interface, build them with the `devkit` command:
+
+```sh
+./gradlew :devkit:buildPrograms        # programs/NAME.bas or .asm -> programs/build/NAME.uef
+```
+
+[`programs/README.md`](programs/README.md) describes the BASIC and assembler
+sources, and the devkit's own command line, which puts several programs on one
+tape, such as a BASIC loader and the code it loads.
 
 ### Debugger
 
@@ -192,7 +226,9 @@ JVM is one way to run the same core, not a requirement of its design. The shared
 unit tests also run as native executables. Loading test fixtures, ROM files and
 tapes lives in `jvmTest`; its JVM file APIs are not production dependencies. Only the
 `desktop` front end and the `debugger` window are JVM-only, because they use Swing
-(and the front end `javax.sound`).
+(and the front end `javax.sound`). The `devkit` is a host tool: its tokeniser,
+assembler and tape writer are common Kotlin, but it declares only a JVM target,
+where its command line reads and writes files.
 
 ## Build and test
 
@@ -200,7 +236,7 @@ Use a JDK 17 or newer. The Gradle wrapper pins Gradle 9.7.0
 and verifies its archive checksum; Kotlin is pinned to 2.4.21.
 
 ```sh
-./gradlew :cpu:jvmTest :electron:jvmTest :debugger:jvmTest :desktop:jvmTest
+./gradlew :cpu:jvmTest :electron:jvmTest :debugger:jvmTest :devkit:jvmTest :desktop:jvmTest
 ```
 
 On this development machine, a local JDK is available without a global install:
@@ -427,6 +463,34 @@ same CPU core can use it unchanged.
 
 Its tests drive a session with a bare `Cpu6502` on RAM and a fake command queue.
 
+## Devkit module
+
+`devkit/src/commonMain/kotlin/elkslop/devkit` builds programs for the Electron
+on the host. It depends on `cpu`, for the opcode table, and nothing else.
+
+- `BasicTokeniser.kt`, `BasicKeywords.kt`: turn BASIC source into the
+  tokenised program BASIC II keeps at PAGE (&0E00 on the Electron). The
+  tokeniser follows BASIC II's own, rule for rule: which words become tokens
+  (`PRINTX` is `PRINT X`, `TOP` is `TO P`, `COUNTER` stays a name), the
+  pseudo-variables' second tokens at the start of a statement (`TIME=0`), and
+  line numbers after `GOTO` and friends encoded behind &8D. Lines without
+  numbers are numbered in tens.
+- `Assembler.kt`, `Expression.kt`: a two-pass 6502 assembler in the syntax of
+  BASIC's `[ ... ]`: `.label`, `&` hex, `P%`, `EQUB`/`EQUW`/`EQUD`/`EQUS`, `\`
+  and `;` comments, and BASIC expressions with `DIV`, `MOD`, `AND`, `ASC`,
+  `CHR$` and the rest. It looks up opcodes in the `cpu` module's `Opcodes`,
+  the same table the CPU and the disassembler use.
+- `CassetteFile.kt`, `UefWriter.kt`: files in the cassette filing system's
+  format (256-byte blocks with CRCs, load and exec addresses), written as UEF.
+- `Devkit.kt` (JVM): builds `.bas` and `.asm` files, and the `devkit` command
+  line behind `:devkit:buildPrograms`.
+
+The tests check the keyword table against the one in the BASIC ROM, every
+documented opcode against the disassembler, and the CRC against Acorn's own
+cassettes. Against the real ROMs in `desktop`, they type a program into BASIC
+and compare what it stores with the tokeniser's output byte for byte, and load
+and run BASIC and machine code from the devkit's tapes.
+
 ## Desktop front end
 
 `desktop/src/jvmMain/kotlin/elkslop/desktop` is JVM-only and uses only the JDK
@@ -448,7 +512,9 @@ Its tests drive a session with a bare `Cpu6502` on RAM and a fake command queue.
 - `KeyMapping.kt`, `TextTyper.kt`: host key mappings, and the typist behind
   paste-as-typing and the Keys menu (each key held for 3 frames, released for 3,
   with a longer pause after RETURN; modifiers go down two frames before the last key).
-- `TapeFile.kt`: reads UEF images, gzipped or plain.
+- `TapeFile.kt`: reads UEF images, gzipped or plain. `Cassette.kt` builds a
+  BASIC or assembler source onto a tape with the `devkit`, for Insert Tape,
+  `--tape` and `--run`, and knows what to type to run it.
 - `EmulatorWindow.kt`, `Main.kt`: menus, options, ROM loading, the headless
   `--disassemble` run, and the host's own Swing look and feel. The Debug
   menu opens the `debugger` module's window on `Emulator.debugTarget`, with
@@ -464,7 +530,8 @@ CTRL stays held through a CTRL + BREAK reset, that the Natural layout keeps ever
 symbol however fast the keys roll over, that tape images load gzipped or
 plain, that Fast Loading loads a whole program quickly and speeds up only while a
 tape is playing, that `--disassemble` and `--break` parse and run (stopping in
-the OS's IRQ handler), and that the icon renders.
+the OS's IRQ handler), that programs built from source load and run, and that the
+icon renders.
 
 ## License
 
