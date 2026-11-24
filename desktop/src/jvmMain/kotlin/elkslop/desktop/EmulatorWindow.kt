@@ -49,6 +49,7 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
     private val isMac = System.getProperty("os.name").startsWith("Mac")
     private lateinit var pauseItem: JCheckBoxMenuItem
     private lateinit var funcLatchItem: JCheckBoxMenuItem
+    private lateinit var fastLoadingItem: JCheckBoxMenuItem
     private var naturalLayout = false
     @Volatile private var capsLock = false
     @Volatile private var motorRunning = false
@@ -86,6 +87,14 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
         for (address in options.breakpoints) emulator.setBreakpoint(address, true)
         options.tape?.let { insertTape(it) }
         options.typeText?.let { emulator.type(it, delayFrames = BOOT_FRAMES) }
+        options.run?.let { file ->
+            insertTape(file)?.let { cassette ->
+                fastLoadingItem.isSelected = true
+                emulator.fastTape = true
+                emulator.type(cassette.runCommand + "\n", delayFrames = BOOT_FRAMES)
+                updateTitle()
+            }
+        }
         emulator.start()
     }
 
@@ -234,13 +243,14 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
                 updateTitle()
             })
             addSeparator()
-            add(JCheckBoxMenuItem("Fast Loading").apply {
+            fastLoadingItem = JCheckBoxMenuItem("Fast Loading").apply {
                 toolTipText = "Run flat out while the machine reads a tape, instead of at 1200 baud"
                 addActionListener {
                     emulator.fastTape = isSelected
                     updateTitle()
                 }
-            })
+            }
+            add(fastLoadingItem)
         })
         add(JMenu("Debug").apply {
             add(item("Debugger...", shortcut(KeyEvent.VK_D)) { debuggerWindow.show() })
@@ -358,11 +368,14 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
         screen.requestFocusInWindow()
     }
 
-    private fun insertTape(file: File) {
-        try {
-            emulator.insertTape(TapeFile.load(file))
-            tapeName = file.name
-            updateTitle()
+    /** Puts [file] in the recorder, building it first if it is a source; null, after saying why, if it can't. */
+    private fun insertTape(file: File): Cassette? {
+        return try {
+            Cassette.open(file).also {
+                emulator.insertTape(it.tape)
+                tapeName = file.name
+                updateTitle()
+            }
         } catch (e: IOException) {
             JOptionPane.showMessageDialog(
                 frame,
@@ -370,6 +383,7 @@ class EmulatorWindow(private val roms: Roms, private val options: Options) : Emu
                 "Insert Tape",
                 JOptionPane.ERROR_MESSAGE,
             )
+            null
         }
     }
 

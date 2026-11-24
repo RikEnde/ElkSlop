@@ -16,6 +16,13 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 The Elkslop contributors"
 SPDX-License-Identifier = "BSD-3-Clause"
 
+# BASIC sources can't hold a comment that isn't part of the program.
+[[annotations]]
+path = ["programs/*.bas"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 The Elkslop contributors"
+SPDX-License-Identifier = "BSD-3-Clause"
+
 [[annotations]]
 path = ["roms/os.rom", "roms/basic.rom"]
 precedence = "override"

@@ -46,6 +46,11 @@ written by Sophie Wilson.
   comments, and the BBC BASIC II source reconstruction at
   [mdfs.net](https://mdfs.net/Software/BBCBasic/BBC/).
 
+The devkit's BASIC tokeniser follows the rules in Harston's BASIC II
+reconstruction; its keyword table is checked against the BASIC ROM itself. The
+Electron OS disassembly showed why `*RUN` from tape upsets BASIC (see
+`CassetteFile.runCommand`).
+
 They have no licence and aren't distributed with Elkslop;
 [`docs/rom-sources/README.md`](docs/rom-sources/README.md) says where to find them.
 

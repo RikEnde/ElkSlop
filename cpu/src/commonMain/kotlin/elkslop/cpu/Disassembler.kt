@@ -67,7 +67,7 @@ class Disassembler(
         val opcode = peek(address and 0xFFFF) and 0xFF
         val instruction = InstructionSet.instructions[opcode] ?: error("No instruction for opcode $opcode")
         val mode = instruction.mode
-        val bytes = listOf(opcode) + List(operandLength(mode)) { peek((address + 1 + it) and 0xFFFF) and 0xFF }
+        val bytes = listOf(opcode) + List(Opcodes.operandLength(mode)) { peek((address + 1 + it) and 0xFFFF) and 0xFF }
         val byte = bytes.getOrElse(1) { 0 }
         val word = byte or (bytes.getOrElse(2) { 0 } shl 8)
         val target = when (mode) {
@@ -145,13 +145,6 @@ class Disassembler(
     fun listing(start: Int, end: Int, origin: Int = start): String = range(start, end, origin).joinToString("\n")
 
     private companion object {
-        fun operandLength(mode: AddressingMode): Int = when (mode) {
-            AddressingMode.IMPLIED, AddressingMode.ACCUMULATOR -> 0
-            AddressingMode.ABSOLUTE, AddressingMode.ABSOLUTE_X, AddressingMode.ABSOLUTE_Y,
-            AddressingMode.INDIRECT -> 2
-            else -> 1
-        }
-
         val AddressingMode.zeroPage: Boolean
             get() = this == AddressingMode.ZERO_PAGE || this == AddressingMode.ZERO_PAGE_X ||
                 this == AddressingMode.ZERO_PAGE_Y || this == AddressingMode.INDEXED_INDIRECT ||

@@ -21,7 +21,10 @@ const val USAGE = """Usage: elkslop [options]
   --roms DIR          Directory with os.rom and basic.rom (default: built in)
   --scale 1|2|3       Window size; 1 is 640 x 512 (default: 1)
   --no-sound          Disable audio output
-  --tape FILE         Put a UEF cassette image in the recorder
+  --tape FILE         Put a UEF cassette image in the recorder; a BASIC (.bas) or
+                      assembler (.asm) source is built onto a tape first
+  --run FILE          Put FILE in the recorder as --tape does, load and run its
+                      program, with fast loading on
   --type TEXT         Type TEXT after boot; \n starts a new line
   --screenshot FILE   Save a PNG of the window, then exit
   --disassemble A-B   Run without a window, then print the machine code from hex address
@@ -40,6 +43,8 @@ data class Options(
     val sound: Boolean = true,
     val tape: File? = null,
     val typeText: String? = null,
+    /** A tape or source to load and run, as `--tape` with the command typed. */
+    val run: File? = null,
     val screenshot: File? = null,
     /** Frames to run before the screenshot or the listing. */
     val screenshotFrames: Int = 150,
@@ -63,6 +68,7 @@ data class Options(
                     "--no-sound" -> options.copy(sound = false)
                     "--tape" -> options.copy(tape = File(value()))
                     "--type" -> options.copy(typeText = value().replace("\\n", "\n"))
+                    "--run" -> options.copy(run = File(value()))
                     "--screenshot" -> options.copy(screenshot = File(value()))
                     "--frames" -> options.copy(screenshotFrames = value().toIntOrNull()?.takeIf { it > 0 }
                         ?: throw IllegalArgumentException("--frames must be a positive number"))
@@ -78,6 +84,9 @@ data class Options(
                     else -> throw IllegalArgumentException("Unknown option: $arg")
                 }
                 i++
+            }
+            if (options.run != null && (options.tape != null || options.typeText != null)) {
+                throw IllegalArgumentException("--run puts in its own tape and types its own command: no --tape or --type with it")
             }
             if (options.origin != null && options.disassemble == null) {
                 throw IllegalArgumentException("--origin only goes with --disassemble")
@@ -156,9 +165,11 @@ class HeadlessRun(val machine: ElectronMachine, val breakpoint: Int?)
  */
 fun runHeadless(roms: Roms, options: Options): HeadlessRun {
     val machine = ElectronMachine(roms.os, roms.basic).also { it.reset() }
-    options.tape?.let { machine.ula.cassette.port = TapeFile.load(it) }
+    val cassette = (options.run ?: options.tape)?.let { Cassette.open(it) }
+    cassette?.let { machine.ula.cassette.port = it.tape }
     val typer = TextTyper()
-    options.typeText?.let { typer.enqueue(it, delayFrames = BOOT_FRAMES) }
+    val text = if (options.run != null) cassette!!.runCommand + "\n" else options.typeText
+    text?.let { typer.enqueue(it, delayFrames = BOOT_FRAMES) }
     val debugger = Debugger(machine.bus::peek)
     for (address in options.breakpoints) debugger.setBreakpoint(address)
     var frames = 0
@@ -245,7 +256,7 @@ fun main(args: Array<String>) {
         val run = try {
             runHeadless(roms, options)
         } catch (e: IOException) {
-            System.err.println("Couldn't load the tape: ${e.message}")
+            System.err.println("Couldn't load the tape:\n${e.message}")
             exitProcess(1)
         }
         val machine = run.machine

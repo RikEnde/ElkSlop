@@ -13,4 +13,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "elkslop"
-include(":cpu", ":electron", ":debugger", ":desktop")
+include(":cpu", ":electron", ":debugger", ":devkit", ":desktop")

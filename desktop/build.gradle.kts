@@ -20,6 +20,7 @@ kotlin {
         jvmMain.dependencies {
             implementation(project(":electron"))
             implementation(project(":debugger"))
+            implementation(project(":devkit"))
         }
         jvmTest.dependencies { implementation(kotlin("test")) }
     }
