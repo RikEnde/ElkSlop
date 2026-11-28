@@ -97,8 +97,22 @@ class ElectronUlaTest {
     }
 
     @Test
+    fun rewritingTheDividerDoesNotRestartTheWave() {
+        // The OS rewrites the pitch every centisecond; the wave must run on.
+        ula.writeRegister(0xFE06, 0) // Half period 32 ticks.
+        ula.writeRegister(0xFE07, 0x02)
+        val start = ula.sound.outputHigh
+        repeat(20) { ula.tick() }
+        ula.writeRegister(0xFE06, 0)
+        repeat(11) { ula.tick() }
+        assertEquals(start, ula.sound.outputHigh)
+        ula.tick()
+        assertEquals(!start, ula.sound.outputHigh)
+    }
+
+    @Test
     fun samplerResamplesSpeakerToHostRate() {
-        ula.sound.startSampling(50_000) // 40 ticks per sample.
+        ula.sound.startSampling(50_000, lowPassHz = 0) // 40 ticks per sample, unfiltered.
         ula.writeRegister(0xFE06, 0x7F) // Half period 4096 ticks.
         ula.writeRegister(0xFE07, 0x02)
         repeat(8192) { ula.tick() }
@@ -107,6 +121,24 @@ class ElectronUlaTest {
         assertEquals(0, ula.sound.bufferedSamples)
         assertTrue(samples.take(102).all { it == -1f })
         assertTrue(samples.slice(103 until 204).all { it == 1f })
+    }
+
+    @Test
+    fun speakerFilterSoftensHighNotesMoreThanLowOnes() {
+        fun peak(divider: Int): Float {
+            val ula = ElectronUla(ByteArray(0x8000))
+            ula.sound.startSampling(48_000)
+            ula.writeRegister(0xFE06, divider)
+            ula.writeRegister(0xFE07, 0x02)
+            repeat(100_000) { ula.tick() }
+            val samples = FloatArray(4000)
+            val count = ula.sound.drainSamples(samples)
+            return samples.drop(count / 2).take(count / 2).maxOf { kotlin.math.abs(it) }
+        }
+        val low = peak(200) // 155 Hz
+        val high = peak(3) // 7.8 kHz
+        assertTrue(low > 0.95f, "low note nearly untouched: $low")
+        assertTrue(high < 0.8f, "high note softened: $high")
     }
 
     @Test
