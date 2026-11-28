@@ -3,6 +3,9 @@
 
 package elkslop.electron
 
+import kotlin.math.PI
+import kotlin.math.exp
+
 /** One-bit speaker oscillator. Time is measured in 2 MHz machine ticks. */
 class UlaSound internal constructor() {
     var divider: Int = 0
@@ -28,15 +31,23 @@ class UlaSound internal constructor() {
     private var levelSum = 0
     private var levelTicks = 0
 
+    // A one-pole low-pass, for the Electron's small speaker, which never played
+    // the square wave's sharpest harmonics. 0 leaves the wave as it is.
+    private var smoothing = 1f
+    private var filtered = 0f
+
     /** Samples available to [drainSamples]. */
     val bufferedSamples: Int get() = sampleCount
 
     /**
      * Start producing samples in -1..1 at [rate] Hz. Up to [capacity] samples
      * are buffered; if the host does not drain them, newer samples are dropped.
+     * [lowPassHz] softens the wave as the speaker did; 0 turns that off.
      */
-    fun startSampling(rate: Int, capacity: Int = rate / 5) {
-        require(rate in 1..ElectronClock.TICKS_PER_SECOND && capacity > 0)
+    fun startSampling(rate: Int, capacity: Int = rate / 5, lowPassHz: Int = SPEAKER_LOW_PASS_HZ) {
+        require(rate in 1..ElectronClock.TICKS_PER_SECOND && capacity > 0 && lowPassHz >= 0)
+        smoothing = if (lowPassHz == 0) 1f else (1 - exp(-2 * PI * lowPassHz / rate)).toFloat()
+        filtered = 0f
         sampleRate = rate
         samples = FloatArray(capacity)
         sampleCount = 0
@@ -60,9 +71,11 @@ class UlaSound internal constructor() {
         ticksRemaining = halfPeriodTicks
     }
 
+    // The new pitch starts at the next edge. The OS rewrites the divider every
+    // centisecond while a note plays, so restarting the count here would
+    // break the wave 100 times a second and buzz.
     internal fun writeDivider(value: Int) {
         divider = value and 0xFF
-        ticksRemaining = halfPeriodTicks
     }
 
     internal fun tick() {
@@ -79,8 +92,14 @@ class UlaSound internal constructor() {
         phase += sampleRate
         if (phase < ElectronClock.TICKS_PER_SECOND) return
         phase -= ElectronClock.TICKS_PER_SECOND
-        if (sampleCount < samples.size) samples[sampleCount++] = levelSum.toFloat() / levelTicks
+        filtered += smoothing * (levelSum.toFloat() / levelTicks - filtered)
+        if (sampleCount < samples.size) samples[sampleCount++] = filtered
         levelSum = 0
         levelTicks = 0
+    }
+
+    companion object {
+        /** Where the speaker filter starts to cut: a guess, tuned by ear. */
+        const val SPEAKER_LOW_PASS_HZ = 4000
     }
 }
